@@ -150,6 +150,14 @@ await page.screenshot({ path: `${OUT}/10-journal-popout.png` });
 await page.keyboard.press("Escape");
 await page.waitForTimeout(200);
 
+// about modal (light mode) — new copy, dynamic "Data last updated" line
+// rendered in the viewer's local timezone (headless Chromium's default TZ)
+await page.locator("#btn-about").click();
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${OUT}/11-about.png` });
+await page.locator("#about-close").click();
+await page.waitForTimeout(200);
+
 // ------------------------------------------------------------ favourites --
 // pick the top 3 ranked journals (positional — robust to naming) in order,
 // confirm circled-number badges appear, then switch to Favourites ranking
@@ -287,6 +295,13 @@ await page.locator("#btn-exit-3d").click();
 await page.locator("#btn-theme").click();
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/25-dark.png` }); // book-style cards, dark mode
+
+// about modal (dark mode) — confirm the new copy/links read fine on dark surface
+await page.locator("#btn-about").click();
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${OUT}/25a-about-dark.png` });
+await page.locator("#about-close").click();
+await page.waitForTimeout(200);
 
 // dark mode with the new controls visible: serif on, Max feed width, Display open
 await page.locator("#btn-serif").click();

@@ -556,28 +556,67 @@ async function openPaper(r) {
 function closePaper() { $("#paper-overlay").classList.remove("show"); }
 
 // ------------------------------------------------------------ about modal --
+// Renders "Data last updated" in the VIEWER's local timezone (no timeZone
+// override — browser default), but still shows the zone name (AEST, BST,
+// etc.) via timeZoneName so visitors can tell what "local" means here.
+function formatUpdated(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "unknown";
+  return new Intl.DateTimeFormat(undefined, {
+    day: "numeric", month: "long", year: "numeric",
+    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  }).format(d);
+}
 function openAbout() {
   const m = S.registry.meta;
   const st = S.stats;
-  const rk = (k) => `<li><b>${esc(m.rankings[k].label)}</b> — ${esc(m.rankings[k].description)}
-    <a href="${esc(m.rankings[k].url)}" target="_blank" rel="noopener">source ↗</a></li>`;
   $("#about-modal").innerHTML = `
     <h3>About Philosopheed</h3>
-    <p>A client-side dashboard of publications in philosophy's leading journals —
-    ${st.papers.toLocaleString()} papers across ${Object.keys(st.journals).length} journals,
-    harvested daily from CrossRef and publisher RSS feeds. Deep archive (from 2000) for the
-    top-ranked journals; five-year windows for the rest. Data updated ${esc(st.generated.slice(0, 10))}.</p>
+    <p>This is a work-in-progress dashboard for viewing publications in leading philosophy
+    journals. The point is so that you can, at a glance, see what's come out recently in top
+    journals.</p>
+    <p>Publications are taken daily from CrossRef and publisher RSS feeds. Given the focus on
+    the present, journals by default only have a 5-year history, except for top-ranked journals
+    which have a history since 2000. Some specialist journals do not show up in the default
+    mode.</p>
+    <p class="about-updated">Data last updated: ${esc(formatUpdated(st.generated))}</p>
     <h3>Rankings</h3>
-    <ul>${rk("db_pca")}${rk("leiter")}${rk("leiter_mp")}</ul>
+    <ul>
+      <li><b>de Bruin 2023 (meta-ranking)</b> — A meta-ranking of several journal rankings,
+      which is the default for this site. Based on this Synthese article:
+      <a href="${esc(m.rankings.db_pca.url)}" target="_blank" rel="noopener">source ↗</a></li>
+      <li><b>Leiter 2022 poll</b> — Many philosophers refer to Brian Leiter's blog for a
+      popular ranking of philosophy journals, so I include it here, too. Most recent is 2022
+      (~1000 participants). Ties share a rank.
+      <a href="${esc(m.rankings.leiter.url)}" target="_blank" rel="noopener">source ↗</a></li>
+      <li><b>Favourites</b> — Pick your favourites! If you want to keep them for future visits,
+      tick "Save favourites on this device" in the Favourites menu — they're stored only in
+      your browser, never sent anywhere.</li>
+    </ul>
     <h3>Modes</h3>
     <ul>${Object.values(m.modes).map((x) => `<li><b>${esc(x.label)}</b> — ${esc(x.basis)}</li>`).join("")}</ul>
+    <h3>By Topic</h3>
+    <p>These topics are organised by heuristic keyword matching over titles and abstracts,
+    which is imperfect, but hopefully helpful. Since this is a bit of a personal passion
+    project, I have 'Blame &amp; moral responsibility' as an option, since it's my area.</p>
     <h3>Caveats</h3>
     <ul>
-      <li>Abstract coverage varies by publisher (some never deposit abstracts to CrossRef).</li>
-      <li>Topics are heuristic keyword tags — imperfect by design; a paper can carry several.</li>
-      <li>Special-issue grouping is best-effort from issue metadata and title patterns.</li>
-      <li>Every paper links to its publisher page via DOI; access depends on your subscriptions.</li>
+      <li>Abstract coverage is gappy, as not all publishers share these through CrossRef/RSS
+      (which is what I take as permission to share abstracts here).</li>
+      <li>Topics are grouped by heuristic keyword tag.</li>
+      <li>Where I can, I try to group things by volume and special issue (SI).</li>
+      <li>Each paper links to its publisher page (via DOI where possible). Your access may
+      vary. Sorry, I am not in the piracy business here!</li>
     </ul>
+    <h3>Who made this?</h3>
+    <p>This was made by Theo Murray, a PhD student at the Australian National University, who
+    also works at Seth Lazar's
+    <a href="https://mintresearch.org" target="_blank" rel="noopener">MINT Lab</a>. My
+    <a href="https://philpeople.org/profiles/theo-murray" target="_blank" rel="noopener">PhilPeople</a>.
+    I made it with the help of Claude Code.</p>
+    <p>My work is primarily on blame/moral responsibility, with particular recent interest on
+    the epistemology of blaming and the ways that new technology (like LLMs) interact with our
+    informal moral practices (like blaming).</p>
     <div class="actions"><button class="iconbtn closebtn" id="about-close">Close</button></div>`;
   $("#about-overlay").classList.add("show");
   $("#about-close").addEventListener("click", () => $("#about-overlay").classList.remove("show"));

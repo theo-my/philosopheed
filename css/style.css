@@ -387,6 +387,10 @@ body.serif .modal .abstract { font-family: var(--serif); }
 .modal .closebtn { margin-left: auto; }
 .about h3 { margin-top: 18px; }
 .about p, .about li { color: var(--ink-2); font-size: 14px; }
+.about .about-updated { color: var(--muted); font-size: 13px; }
+.about ul { margin: 6px 0; padding-left: 22px; }
+.about li { margin-bottom: 6px; }
+.about li:last-child { margin-bottom: 0; }
 
 /* ------------------------------------------------------------------- 3D */
 #three-wrap { position: fixed; inset: 0; z-index: 60; display: none; background: var(--page); }
