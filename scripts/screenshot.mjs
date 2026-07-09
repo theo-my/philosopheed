@@ -18,6 +18,15 @@ await page.goto(BASE, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/01-venue.png` }); // default view: book-style cards, light mode
 
+// task 12: desktop header — full segmented View/Ranking/Window rows (NOT
+// the compact dropdowns, which only take over below the mobile breakpoint)
+await page.locator("header.site").screenshot({ path: `${OUT}/01a-desktop-header.png` });
+{
+  const ddVisible = await page.locator("#view-dd-wrap").isVisible();
+  const segVisible = await page.locator("#view-seg").isVisible();
+  console.log(`Desktop header: dropdowns visible=${ddVisible} (expect false), segmented rows visible=${segVisible} (expect true)`);
+}
+
 // journal card head close-up (desktop) — verifies the compacted card-top
 // padding and that "View all" now sits inline with the count, not stacked
 // directly above/over the sparkline
@@ -48,6 +57,32 @@ await page.screenshot({ path: `${OUT}/04-topic.png` });
   await jbody.evaluate((el) => { el.scrollTop = 180; });
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/04b-topic-scrolled.png` });
+}
+
+// topic card "Expand (N papers)" button — always present (v7), not just
+// past the 200-row preview cap — and the per-card bottom-edge drag-resize
+// handle (pointer events; per-card height override, independent of the
+// global card-height slider)
+{
+  const firstTopic = page.locator(".jcard.tcard").first();
+  await firstTopic.scrollIntoViewIfNeeded();
+  const expandBtn = firstTopic.locator(":scope > .showmore");
+  const label = await expandBtn.innerText();
+  console.log(`Topic card expand button label: "${label}" (expect "Expand (N papers)")`);
+  await expandBtn.click();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/04c-topic-expand-button.png` });
+  await expandBtn.click(); // collapse back
+  await page.waitForTimeout(300);
+
+  const handle = firstTopic.locator(".card-resize-handle");
+  const hbox = await handle.boundingBox();
+  await page.mouse.move(hbox.x + hbox.width / 2, hbox.y + hbox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hbox.x + hbox.width / 2, hbox.y + 260, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/04d-topic-card-resized.png` }); // card should be visibly taller
 }
 
 // ---------------------------------------------------------------- all view --
@@ -165,6 +200,15 @@ await page.screenshot({ path: `${OUT}/08-5yr.png` });
   await synCard.locator(".jbody").evaluate((el) => { el.scrollTop = el.scrollHeight * 0.15; });
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/09a-synthese-volume-boundary.png` });
+  // task 11: year-qualified volume separator label is "Vol. N (YYYY)" (was
+  // "'YY · Vol. N") — Synthese runs several volumes/year, so its separators
+  // are always the year-qualified form; assert the new format on whatever's
+  // in view.
+  {
+    const label = await synCard.locator(".volsep-label").first().innerText();
+    const ok = /^VOL\.\s*\d+\s*\(\d{4}\)$/.test(label);
+    console.log(`Volume separator label format: "${label}" — ${ok ? "PASS" : "FAIL"} (expect "VOL. N (YYYY)")`);
+  }
   await synCard.locator(":scope > .showmore", { hasText: "Collapse" }).click(); // collapse back
   await page.waitForTimeout(300);
 }
@@ -228,6 +272,17 @@ await page.screenshot({ path: `${OUT}/11-about.png` });
 await page.locator("#about-close").click();
 await page.waitForTimeout(200);
 
+// -------------------------------------------------------- favourites view --
+// task 13: "Favourites" as a VIEW option (distinct from the Favourites
+// RANKING option below) — empty state first, before any favourites exist
+{
+  await page.locator('#view-seg button[data-v="favorites"]').click();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/20a-favorites-view-empty.png` });
+  await page.locator('#view-seg button[data-v="venue"]').click();
+  await page.waitForTimeout(300);
+}
+
 // ------------------------------------------------------------ favourites --
 // pick the top 3 ranked journals (positional — robust to naming) in order,
 // confirm circled-number badges appear, then switch to Favourites ranking
@@ -241,12 +296,51 @@ await page.waitForTimeout(200);
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/20-favorites-dropdown.png` });
   await page.locator("#fav-persist").click(); // opt in to persistence
+
+  // Re-order favourites: drag-to-rank panel replaces the checkbox list,
+  // "Done" returns to it — reordering updates rank badges/numbers everywhere
+  // (checkbox view, Favourites ranking mode, 3D shelving) since it's just
+  // rewriting the one shared Prefs.favorites array.
+  await page.locator("#fav-reorder").click();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/20b-favorites-reorder-panel.png` });
+  {
+    const firstRow = page.locator("#fav-reorder-list .fav-reorder-row").first();
+    const rowsAll = page.locator("#fav-reorder-list .fav-reorder-row");
+    const count = await rowsAll.count();
+    const box = await firstRow.boundingBox();
+    const lastBox = await rowsAll.nth(count - 1).boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, lastBox.y + lastBox.height - 4, { steps: 12 });
+    await page.waitForTimeout(150);
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const orderAfterDrag = await page.evaluate(() =>
+      [...document.querySelectorAll("#fav-reorder-list .fav-reorder-row .fav-name")].map((n) => n.textContent));
+    console.log("Favourites re-order: first pick dragged to last ->", orderAfterDrag);
+  }
+  await page.screenshot({ path: `${OUT}/20c-favorites-reordered.png` });
+  await page.locator("#fav-reorder-done").click();
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/20d-favorites-checkbox-after-reorder.png` }); // rank badges reflect the new order
   await page.mouse.click(50, 50); // close popover
   await page.waitForTimeout(200);
 
   await page.locator("#rank-seg button", { hasText: "Favourites" }).click();
   await page.waitForTimeout(500);
-  await page.screenshot({ path: `${OUT}/21-favorites-ranking-2d.png` });
+  await page.screenshot({ path: `${OUT}/21-favorites-ranking-2d.png` }); // reflects the re-ordered ranks
+
+  // task 13: Favourites VIEW (not ranking) — only the favourited journals,
+  // in favourites order, as ordinary cards. Revert ranking to de Bruin
+  // first so this isn't conflated with the ranking-mode shot above.
+  await page.locator("#rank-seg button", { hasText: "de Bruin" }).click();
+  await page.waitForTimeout(300);
+  await page.locator('#view-seg button[data-v="favorites"]').click();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/20e-favorites-view-populated.png` });
+  await page.locator('#view-seg button[data-v="venue"]').click();
+  await page.waitForTimeout(300);
 }
 
 // feed width — "Max" preset (replaces the old Wide toggle) + card style /
@@ -255,7 +349,7 @@ await page.waitForTimeout(200);
 // #btn-display click — don't re-click #btn-display mid-sequence, it toggles).
 await page.locator("#btn-display").click();
 await page.waitForTimeout(200);
-await page.screenshot({ path: `${OUT}/22-display-popover.png` }); // shows card-style + feed-width controls
+await page.screenshot({ path: `${OUT}/22-display-popover.png` }); // shows card-style + feed-width (all 4 presets) + Font row, unclipped
 await page.locator('#feedwidth-seg button[data-fw="max"]').click();
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/23-feedwidth-max.png` });
@@ -269,8 +363,13 @@ await page.locator('#cardstyle-seg button[data-cs="book"]').click(); // revert t
 await page.locator("#btn-display").click(); // close popover
 await page.waitForTimeout(200);
 
-// serif toggle on — venue titles + paper modal
-await page.locator("#btn-serif").click();
+// font toggle: Serif — venue titles + paper modal (moved from a standalone
+// header button into the Display popover as a Font: Sans/Serif row in v7)
+await page.locator("#btn-display").click();
+await page.waitForTimeout(200);
+await page.locator('#font-seg button[data-font="serif"]').click();
+await page.waitForTimeout(200);
+await page.locator("#btn-display").click(); // close popover
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/12-serif-venue.png` });
 await page.locator(".jbody .paper").first().click();
@@ -294,49 +393,108 @@ await page.mouse.click(50, 50); // click outside to close
 await page.waitForTimeout(200);
 // reset back to defaults so later views aren't zoomed for the rest of the run
 await page.locator("#btn-display").click();
-await page.locator("#display-reset").click();
+await page.locator("#display-reset").click(); // resets zoom/card sliders/feed width/card style AND font (serif -> sans)
 await page.locator("#btn-display").click();
-await page.locator("#btn-serif").click(); // revert serif for subsequent shots
 await page.waitForTimeout(300);
 // undo the favourites ranking pick so 3D shots start from de Bruin ranking
 await page.locator("#rank-seg button", { hasText: "de Bruin" }).click();
 await page.waitForTimeout(300);
 
 // ------------------------------------------------------------------- 3D --
+// _debugState() is a small read-only hook threeview.js exports purely for
+// this kind of assertion (camera position, lectern occupancy, ghost count,
+// panel-open) — see js/threeview.js's "testing" section at the bottom.
+// Re-importing the module by URL inside page.evaluate resolves to the SAME
+// already-running singleton instance app.js loaded (ES module caching is
+// per-resolved-URL), so this reads genuinely live state, not a fresh copy.
+async function threeDebugState() {
+  return page.evaluate(async () => {
+    const m = await import(new URL("./js/threeview.js", location.href).href);
+    return m._debugState();
+  });
+}
+
 await page.locator("#btn-3d").click();
 await page.waitForTimeout(2500);
-await page.screenshot({ path: `${OUT}/15-3d.png` });
+await page.screenshot({ path: `${OUT}/15-3d.png` }); // home view — lecterns close & below eye level, empty
 
 // discovery hint should be visible shortly after entering 3D, before its
 // 10s auto-dismiss or a big rotation
 await page.screenshot({ path: `${OUT}/15b-discovery-hint.png` });
 
 // click 3 top-shelf books (well clear of the lectern row below) — each
-// opens onto the next free lectern (title legible)
+// opens onto the next free lectern (title legible from the home camera,
+// unmoved — see LECTERN_Z/LECTERN_STAND_H in threeview.js)
 for (const x of [260, 500, 750]) {
   await page.mouse.click(x, 260);
   await page.waitForTimeout(900);
 }
 await page.waitForTimeout(300);
-await page.screenshot({ path: `${OUT}/16-lecterns-open-books.png` });
+await page.screenshot({ path: `${OUT}/16-lecterns-open-books.png` }); // lecterns WITH opened books, legible from home
+{
+  const st = await threeDebugState();
+  console.log(`Lecterns occupied after 3 clicks: ${JSON.stringify(st.lecternOccupancy)} (expect [true,true,true,false,false])`);
+}
 
-// click the first occupied lectern's open book — today's fly-to reading pane.
-// Lecterns fill left-to-right in click order, so the first placed book sits
-// on the leftmost lectern; probe a small grid around its expected position
+// ghost slots: each emptied shelf slot should show a ghosted journal-name
+// marker with its own ↩ Return — same view as 16, named separately per the
+// verification brief; also assert the count via _debugState rather than
+// just eyeballing the screenshot
+{
+  const st = await threeDebugState();
+  console.log(`Ghost slots present: ${st.ghostCount} (expect 3)`);
+  await page.screenshot({ path: `${OUT}/16b-ghost-slots.png` });
+}
+
+// click a ghost slot's own ↩ Return (NOT the lectern's) — sends that book
+// straight back to the shelf and clears its lectern, independent of the
+// lectern's own ↩. Small probe grid — the exact pixel shifts slightly with
+// the shelf's own reflowed row width.
+{
+  let returned = false;
+  for (const [x, y] of [[230, 235], [232, 240], [228, 230], [235, 245], [225, 238]]) {
+    await page.mouse.click(x, y);
+    await page.waitForTimeout(400);
+    const st = await threeDebugState();
+    if (!st.lecternOccupancy[0]) { returned = true; break; }
+  }
+  console.log(`Ghost-slot ↩ Return worked: ${returned}`);
+  await page.screenshot({ path: `${OUT}/16c-ghost-return-clicked.png` }); // first lectern empty again, book back on shelf
+  // put it back on the lectern for the reading-panel test below
+  await page.mouse.click(260, 260);
+  await page.waitForTimeout(900);
+}
+
+// click the occupied lectern's open book — reading is a screen-space panel
+// now, NOT a camera fly-to (v7 retired that entirely). Assert the camera
+// position is bit-for-bit unchanged before vs after, since that's the whole
+// point of the change. Probe a small grid around the expected book position
 // rather than a single guessed pixel (camera framing can shift a little).
 {
+  const before = await threeDebugState();
   let opened = false;
-  for (const [x, y] of [[180, 455], [200, 470], [160, 440], [220, 490]]) {
+  // target the 3rd placed book's lectern (from the (750,260) shelf click) —
+  // it lands fully on-screen and centred, unlike the leftmost lectern's
+  // book which can be partially cropped by the viewport edge
+  for (const [x, y] of [[750, 520], [720, 530], [780, 510], [700, 540], [800, 500]]) {
     await page.mouse.click(x, y);
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(600);
     if (await page.locator("#pg-close").isVisible().catch(() => false)) { opened = true; break; }
   }
   if (!opened) console.log("WARNING: could not open the lectern reading pane — check 16-lecterns-open-books.png for actual book position");
-  await page.screenshot({ path: `${OUT}/17-lectern-reading-pane.png` });
+  const after = await threeDebugState();
+  const cameraUnmoved = JSON.stringify(before.cameraPos) === JSON.stringify(after.cameraPos);
+  console.log(`Reading-panel camera-unmoved assertion: opened=${opened} before=${JSON.stringify(before.cameraPos)} after=${JSON.stringify(after.cameraPos)} -> ${cameraUnmoved ? "PASS (camera did not move)" : "FAIL (camera moved!)"}`);
+  await page.screenshot({ path: `${OUT}/17-lectern-reading-pane.png` }); // screen-space overlay, camera unchanged behind it
+  const volsepCount = await page.locator("#three-panel .volsep").count();
+  console.log(`Reading panel volume separators present: ${volsepCount}`);
   if (opened) {
-    // close the book (back to the lectern row, not the shelf — book stays put)
-    await page.locator("#pg-close").click();
-    await page.waitForTimeout(1200);
+    await page.locator("#pg-close").click(); // close — camera should still be exactly where it was
+    await page.waitForTimeout(400);
+    const afterClose = await threeDebugState();
+    const cameraStillUnmoved = JSON.stringify(before.cameraPos) === JSON.stringify(afterClose.cameraPos);
+    console.log(`Camera position after Close: ${JSON.stringify(afterClose.cameraPos)} -> ${cameraStillUnmoved ? "PASS" : "FAIL"}`);
+    await page.screenshot({ path: `${OUT}/17b-reading-panel-closed.png` });
   }
 }
 
@@ -354,6 +512,15 @@ await page.mouse.down();
 await page.mouse.move(750, 470, { steps: 24 });
 await page.mouse.up();
 await page.waitForTimeout(600);
+
+// wide/zoomed-out shot: side-shelf adjacency — both wings hinged flush
+// against the main case (v7 task 5), carved labels visible ("Ethics &
+// Political", "Philosophy of science", "Technology & AI")
+await page.mouse.wheel(0, 900); // dollyBy(-deltaY*0.012): positive deltaY zooms OUT
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${OUT}/18b-side-shelf-adjacency-wide.png` });
+await page.mouse.wheel(0, -900); // zoom back in to the home dolly level
+await page.waitForTimeout(400);
 
 // Favourites in 3D: "Open favourites" places the top N onto the lecterns
 await page.locator("#btn-3d-open-favs").click();
@@ -374,11 +541,37 @@ await page.locator("#about-close").click();
 await page.waitForTimeout(200);
 
 // dark mode with the new controls visible: serif on, Max feed width, Display open
-await page.locator("#btn-serif").click();
 await page.locator("#btn-display").click();
+await page.locator('#font-seg button[data-font="serif"]').click();
 await page.locator('#feedwidth-seg button[data-fw="max"]').click();
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/26-dark-controls.png` });
+await page.locator("#btn-display").click(); // close popover
+await page.waitForTimeout(200);
+// revert font + feed width so later shots aren't affected
+await page.locator("#btn-display").click();
+await page.locator('#font-seg button[data-font="sans"]').click();
+await page.locator('#feedwidth-seg button[data-fw="default"]').click();
+await page.locator("#btn-display").click();
+await page.waitForTimeout(200);
+
+// dark-mode scrollbars (task 9) — scrollbar-color is applied via CSS custom
+// properties; headless Chromium screenshots hide OS scrollbars by default
+// (Playwright's --hide-scrollbars flag), so this asserts the COMPUTED style
+// directly rather than relying on a visual screenshot of the thumb itself.
+{
+  const synCard = page.locator(".jcard").filter({ has: page.locator(".jname", { hasText: /^Synthese\s*$/ }) }).first();
+  await synCard.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/26b-dark-scrollbar-area.png` }); // scrollable card list area, dark mode
+  const scrollbarColor = await page.evaluate(() => getComputedStyle(document.querySelector(".jbody")).scrollbarColor);
+  console.log(`Dark-mode .jbody scrollbar-color: "${scrollbarColor}" (expect a dark thumb/track pair, not "auto")`);
+  await page.locator("#btn-theme").click(); // back to light
+  await page.waitForTimeout(300);
+  const scrollbarColorLight = await page.evaluate(() => getComputedStyle(document.querySelector(".jbody")).scrollbarColor);
+  console.log(`Light-mode .jbody scrollbar-color: "${scrollbarColorLight}" (expect "auto" — unaffected)`);
+  await page.locator("#btn-theme").click(); // back to dark for the rest of the desktop run
+  await page.waitForTimeout(300);
+}
 
 // ================================================================ mobile ==
 // Manually-specified device descriptors (rather than importing a named
@@ -412,11 +605,25 @@ await mp.locator(".jcard").first().locator(".jhead").screenshot({ path: `${OUT}/
   console.log(`portrait horizontal overflow: ${overflowPortrait}px (should be <=0)`);
 }
 
+// task 12: View/Ranking/Window are compact dropdowns on mobile now — the
+// segmented rows are display:none below this breakpoint, so drive them via
+// the dropdowns (what a real user would tap) rather than the hidden buttons
+{
+  const segVisible = await mp.locator("#view-seg").isVisible();
+  const ddVisible = await mp.locator("#view-dd-wrap").isVisible();
+  console.log(`Mobile portrait: view-seg visible=${segVisible} (expect false), view-dd-wrap visible=${ddVisible} (expect true)`);
+}
+await mp.selectOption("#win-dd", "year");
+await mp.waitForTimeout(300);
+await mp.screenshot({ path: `${OUT}/m01d-window-dd-year-open.png` }); // typed-year input still reachable via the dropdown flow
+await mp.selectOption("#win-dd", "365");
+await mp.waitForTimeout(300);
+
 // "All" view on a phone (single-column, chunked/lazy-rendered flat list)
-await mp.locator('#view-seg button[data-v="all"]').click();
+await mp.selectOption("#view-dd", "all");
 await mp.waitForTimeout(600);
 await mp.screenshot({ path: `${OUT}/m01c-all-portrait.png` });
-await mp.locator('#view-seg button[data-v="venue"]').click();
+await mp.selectOption("#view-dd", "venue");
 await mp.waitForTimeout(400);
 
 await mp.locator("#btn-display").click();
@@ -443,10 +650,10 @@ await mp.screenshot({ path: `${OUT}/m05-paper-modal.png` });
 await mp.keyboard.press("Escape");
 await mp.waitForTimeout(200);
 
-await mp.locator('#view-seg button[data-v="topic"]').click();
+await mp.selectOption("#view-dd", "topic");
 await mp.waitForTimeout(500);
 await mp.screenshot({ path: `${OUT}/m06-topic.png` });
-await mp.locator('#view-seg button[data-v="venue"]').click();
+await mp.selectOption("#view-dd", "venue");
 await mp.waitForTimeout(300);
 
 // 3D — portrait: framing, touch-drag rotate, "Aim to view"

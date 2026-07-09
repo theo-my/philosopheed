@@ -24,17 +24,19 @@
       <div class="spacer"></div>
       <input class="searchbox" id="search" type="search"
              placeholder="Search titles &amp; authors…" autocomplete="off">
-      <button class="iconbtn toggle" id="btn-serif" title="Serif paper titles &amp; abstracts">Serif</button>
       <div class="display-wrap">
         <button class="iconbtn" id="btn-favorites" title="Favourite journals">Favourites</button>
         <div class="popover favorites-popover" id="favorites-popover">
           <div class="popover-head">Favourites <span class="popover-sub">click to add, in order</span></div>
           <div class="fav-list" id="fav-list"></div>
+          <div class="fav-reorder-list" id="fav-reorder-list" style="display:none"></div>
           <label class="fav-persist-row">
             <input type="checkbox" id="fav-persist">
             Save favourites on this device
           </label>
           <button class="iconbtn popover-reset" id="fav-clear">Clear favourites</button>
+          <button class="iconbtn popover-reset" id="fav-reorder">Re-order favourites</button>
+          <button class="iconbtn popover-reset" id="fav-reorder-done" style="display:none">Done</button>
         </div>
       </div>
       <div class="display-wrap">
@@ -58,6 +60,11 @@
             <button data-cs="book" class="on">Book</button>
             <button data-cs="basic">Basic</button>
           </nav>
+          <div class="popover-label">Font</div>
+          <nav class="seg small popover-seg" id="font-seg" aria-label="Font">
+            <button data-font="sans" class="on">Sans</button>
+            <button data-font="serif">Serif</button>
+          </nav>
           <button class="iconbtn popover-reset" id="display-reset">Reset</button>
         </div>
       </div>
@@ -72,9 +79,25 @@
         <button data-v="venue" class="on">By venue</button>
         <button data-v="topic">By topic</button>
         <button data-v="all">All</button>
+        <button data-v="favorites">Favourites</button>
       </nav>
+      <label class="dd-wrap" id="view-dd-wrap">
+        <span class="dd-label">View</span>
+        <select id="view-dd" aria-label="View">
+          <option value="venue">By venue</option>
+          <option value="topic">By topic</option>
+          <option value="all">All</option>
+          <option value="favorites">Favourites</option>
+        </select>
+      </label>
+
       <span class="label">Ranking</span>
       <nav class="seg small" id="rank-seg" aria-label="Ranking"></nav>
+      <label class="dd-wrap" id="rank-dd-wrap">
+        <span class="dd-label">Ranking</span>
+        <select id="rank-dd" aria-label="Ranking"></select>
+      </label>
+
       <span class="label">Window</span>
       <nav class="seg small" id="win-seg" aria-label="Time window">
         <button data-w="7">7 d</button>
@@ -86,6 +109,19 @@
         <button data-w="year">Year…</button>
         <button data-w="custom" id="win-custom">Custom…</button>
       </nav>
+      <label class="dd-wrap" id="win-dd-wrap">
+        <span class="dd-label">Window</span>
+        <select id="win-dd" aria-label="Time window">
+          <option value="7">7 d</option>
+          <option value="30">30 d</option>
+          <option value="90">90 d</option>
+          <option value="365" selected>12 mo</option>
+          <option value="1826">5 yr</option>
+          <option value="all">Since 2000</option>
+          <option value="year">Year…</option>
+          <option value="custom" id="win-dd-custom-opt">Custom…</option>
+        </select>
+      </label>
       <span class="yearpick" id="yearpick">
         <input type="number" id="yearinput" min="2000" max="2026" step="1" value="2020"
                inputmode="numeric" aria-label="Year (Enter applies)">
@@ -141,7 +177,7 @@
   <div class="three-panel" id="three-panel"></div>
   <div class="side-shelf-hint" id="side-shelf-hint">◀ …specialist shelves… ▶</div>
   <div class="aim-status" id="aim-status"></div>
-  <div class="three-hint" id="three-hint-text">drag to look around · scroll to zoom · click a shelf book to open it on a lectern · click an open lectern book to read · click a book's ↩ to reshelve</div>
+  <div class="three-hint" id="three-hint-text">drag to look around · scroll to zoom · click a shelf book to open it on a lectern · click an open lectern book to read (camera stays put) · click a ↩ (on the lectern or its shelf slot) to reshelve</div>
 </div>
 
 <script type="module" src="js/app.js"></script>

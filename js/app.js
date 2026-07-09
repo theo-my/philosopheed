@@ -336,7 +336,7 @@ export function inferVolumeFormat(papers) {
   return "cumulative";
 }
 export function volumeLabelText(row, fmt) {
-  return fmt === "year-vol" ? `’${row.published.slice(2, 4)} · Vol. ${row.volume}` : `Vol. ${row.volume}`;
+  return fmt === "year-vol" ? `Vol. ${row.volume} (${row.published.slice(0, 4)})` : `Vol. ${row.volume}`;
 }
 function volumeSeparatorEl(label) {
   return el("div", "volsep", `<span class="volsep-label">${esc(label)}</span>`);
@@ -362,56 +362,87 @@ function appendPapers(container, allPapers, showJournal, from = 0, to = allPaper
 // ------------------------------------------------------------ venue view --
 const PREVIEW = 200;   // rows per scrollable card (6 visible, rest on scroll)
 
-function renderVenue(rows) {
+// Builds one venue-style journal card — shared by the "By venue" grid and
+// the "Favourites" view (task 13), so both get identical rank badges,
+// sparklines, "View all", and expand behaviour for free.
+function buildJournalCard(j, papers) {
+  const card = el("div", "jcard");
+  applyColor(card, j);
+  const ceased = j.active === false ? `<span class="jceased">ceased</span>` : "";
+  const head = el("div", "jhead");
+  head.innerHTML = `${rankBadge(j)}
+    <div><div class="jname">${esc(j.name)} ${ceased}</div>
+    <div class="jmeta">${esc(j.publisher)}</div></div>
+    <div class="jright">
+    <div class="jright-top">
+    <span class="jcount"><b>${papers.length}</b> in window</span>
+    <button class="viewall" type="button" title="View the full list for this journal">View all</button>
+    </div>
+    ${sparkline(j.id)}</div>`;
+  head.querySelector(".viewall").addEventListener("click", (e) => {
+    e.stopPropagation();
+    openJournalModal(j, papers);
+  });
+  const body = el("div", "jbody");
+  appendPapers(body, papers, false, 0, Math.min(PREVIEW, papers.length));
+  if (!papers.length) body.append(el("div", "status", "No papers in this window."));
+  card.append(head, body);
+  if (papers.length > PREVIEW) {
+    const more = el("button", "showmore", `All ${papers.length} papers`);
+    more.addEventListener("click", () => {
+      const expanded = card.classList.toggle("expanded");
+      body.innerHTML = "";
+      if (expanded) {
+        fillJournalBody(body, papers);
+        more.textContent = "Collapse";
+      } else {
+        appendPapers(body, papers, false, 0, Math.min(PREVIEW, papers.length));
+        more.textContent = `All ${papers.length} papers`;
+        card.scrollIntoView({ block: "nearest" });
+      }
+    });
+    body.after(more);
+    more.style.margin = "0 15px 12px";
+    more.style.width = "calc(100% - 30px)";
+  }
+  return card;
+}
+
+function byJournalMap(rows) {
   const byJ = new Map();
   rows.forEach((r) => {
     if (!byJ.has(r.journal)) byJ.set(r.journal, []);
     byJ.get(r.journal).push(r);
   });
+  return byJ;
+}
+
+function renderVenue(rows) {
+  const byJ = byJournalMap(rows);
   const root = el("div", "jgrid");
-  for (const j of rankedJournals()) {
-    const papers = byJ.get(j.id) || [];
-    const card = el("div", "jcard");
-    applyColor(card, j);
-    const ceased = j.active === false ? `<span class="jceased">ceased</span>` : "";
-    const head = el("div", "jhead");
-    head.innerHTML = `${rankBadge(j)}
-      <div><div class="jname">${esc(j.name)} ${ceased}</div>
-      <div class="jmeta">${esc(j.publisher)}</div></div>
-      <div class="jright">
-      <div class="jright-top">
-      <span class="jcount"><b>${papers.length}</b> in window</span>
-      <button class="viewall" type="button" title="View the full list for this journal">View all</button>
-      </div>
-      ${sparkline(j.id)}</div>`;
-    head.querySelector(".viewall").addEventListener("click", (e) => {
-      e.stopPropagation();
-      openJournalModal(j, papers);
-    });
-    const body = el("div", "jbody");
-    appendPapers(body, papers, false, 0, Math.min(PREVIEW, papers.length));
-    if (!papers.length) body.append(el("div", "status", "No papers in this window."));
-    card.append(head, body);
-    if (papers.length > PREVIEW) {
-      const more = el("button", "showmore", `All ${papers.length} papers`);
-      more.addEventListener("click", () => {
-        const expanded = card.classList.toggle("expanded");
-        body.innerHTML = "";
-        if (expanded) {
-          fillJournalBody(body, papers);
-          more.textContent = "Collapse";
-        } else {
-          appendPapers(body, papers, false, 0, Math.min(PREVIEW, papers.length));
-          more.textContent = `All ${papers.length} papers`;
-          card.scrollIntoView({ block: "nearest" });
-        }
-      });
-      body.after(more);
-      more.style.margin = "0 15px 12px";
-      more.style.width = "calc(100% - 30px)";
-    }
-    root.append(card);
+  for (const j of rankedJournals()) root.append(buildJournalCard(j, byJ.get(j.id) || []));
+  return root;
+}
+
+// ---------------------------------------------------------- favourites view --
+// Shows ONLY the user's favourited journals, as ordinary venue-style cards,
+// in the user's own pick/drag order (Prefs.favorites — see the re-order
+// panel in initChrome). Distinct from the "Favourites" RANKING option,
+// which re-ranks ALL journals rather than filtering to just these.
+function renderFavoritesView(rows) {
+  const inMode = new Set(modeJournals().map((j) => j.id));
+  const favIds = Prefs.favorites.filter((id) => inMode.has(id));
+  if (!favIds.length) {
+    const root = el("div", "status fav-view-empty");
+    root.innerHTML = `No favourites picked yet for this mode.<br>Open the <b>Favourites</b> menu in the header to pick some — they'll show up here, in the order you pick them.`;
+    return root;
   }
+  const byJ = byJournalMap(rows);
+  const root = el("div", "jgrid");
+  favIds.forEach((id) => {
+    const j = journalById(id);
+    if (j) root.append(buildJournalCard(j, byJ.get(id) || []));
+  });
   return root;
 }
 
@@ -493,8 +524,16 @@ function renderTopic(rows) {
     papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, true)));
     if (!papers.length) body.append(el("div", "status", "No papers in this window."));
     card.append(head, body);
-    if (papers.length > PREVIEW) {
-      const more = el("button", "showmore", `All ${papers.length} papers`);
+
+    // per-card height override set by the drag handle below; cleared while
+    // expanded (that state has its own generous CSS cap — see .expanded .jbody)
+    let customH = null;
+    function applyCustomHeight() {
+      body.style.maxHeight = (customH != null && !card.classList.contains("expanded")) ? `${customH}px` : "";
+    }
+
+    if (papers.length) {
+      const more = el("button", "showmore", `Expand (${papers.length} papers)`);
       more.addEventListener("click", () => {
         const expanded = card.classList.toggle("expanded");
         body.innerHTML = "";
@@ -503,14 +542,39 @@ function renderTopic(rows) {
           more.textContent = "Collapse";
         } else {
           papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, true)));
-          more.textContent = `All ${papers.length} papers`;
+          more.textContent = `Expand (${papers.length} papers)`;
           card.scrollIntoView({ block: "nearest" });
         }
+        applyCustomHeight();
       });
       body.after(more);
       more.style.margin = "0 15px 12px";
       more.style.width = "calc(100% - 30px)";
     }
+
+    // draggable bottom edge — per-card height resize (pointer events, so it
+    // works with touch as well as mouse); sane min/max bounds
+    const RESIZE_MIN = 120, RESIZE_MAX = 1400;
+    const handle = el("div", "card-resize-handle");
+    handle.title = "Drag to resize this card";
+    let dragging = false, startY = 0, startH = 0;
+    handle.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      startY = e.clientY;
+      startH = body.getBoundingClientRect().height;
+      handle.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      customH = Math.min(RESIZE_MAX, Math.max(RESIZE_MIN, startH + (e.clientY - startY)));
+      applyCustomHeight();
+    });
+    const endResize = () => { dragging = false; };
+    handle.addEventListener("pointerup", endResize);
+    handle.addEventListener("pointercancel", endResize);
+    card.append(handle);
+
     root.append(card);
   }
   return root;
@@ -713,6 +777,7 @@ async function refresh() {
   if (S.query.length >= 2) c.append(renderSearch(S.rows));
   else if (S.view === "topic") c.append(renderTopic(S.rows));
   else if (S.view === "all") c.append(renderAll(S.rows));
+  else if (S.view === "favorites") c.append(renderFavoritesView(S.rows));
   else c.append(renderVenue(S.rows));
   const winLabel = S.win === "year" ? `year ${S.year}`
     : S.win === "custom" ? `last ${customWindowLabel()}`
@@ -737,27 +802,43 @@ function segButtons(container, items, onPick) {
   });
 }
 
+// Ranking options depend on mode (general: db/leiter/favourites; field
+// modes: field/favourites) — shared by the segmented row AND its compact
+// dropdown equivalent (task 12), so both always agree on what's on offer.
+function rankOptions() {
+  return S.mode !== "general"
+    ? [
+        { id: "field", label: "Field ranking", on: S.rankMode !== "favorites" },
+        { id: "favorites", label: "Favourites", on: S.rankMode === "favorites" },
+      ]
+    : [
+        { id: "db", label: "de Bruin 2023", on: S.rankMode !== "favorites" && S.ranking === "db" },
+        { id: "leiter", label: "Leiter 2022", on: S.rankMode !== "favorites" && S.ranking === "leiter" },
+        { id: "favorites", label: "Favourites", on: S.rankMode === "favorites" },
+      ];
+}
+function applyRanking(id) {
+  if (id === "favorites") S.rankMode = "favorites";
+  else { S.rankMode = "normal"; if (id !== "field") S.ranking = id; }
+  syncRankControls();
+  refresh();
+  S.three?.setRanking?.();
+}
 function buildRankSeg(container) {
-  const applyRanking = (id) => {
-    if (id === "favorites") S.rankMode = "favorites";
-    else { S.rankMode = "normal"; if (id !== "field") S.ranking = id; }
-    buildRankSeg($("#rank-seg"));
-    buildRankSeg($("#rank-seg-3d"));
-    refresh();
-    S.three?.setRanking?.();
-  };
-  if (S.mode !== "general") {
-    segButtons(container, [
-      { id: "field", label: "Field ranking", on: S.rankMode !== "favorites" },
-      { id: "favorites", label: "Favourites", on: S.rankMode === "favorites" },
-    ], applyRanking);
-    return;
-  }
-  segButtons(container, [
-    { id: "db", label: "de Bruin 2023", on: S.rankMode !== "favorites" && S.ranking === "db" },
-    { id: "leiter", label: "Leiter 2022", on: S.rankMode !== "favorites" && S.ranking === "leiter" },
-    { id: "favorites", label: "Favourites", on: S.rankMode === "favorites" },
-  ], applyRanking);
+  segButtons(container, rankOptions(), applyRanking);
+}
+function buildRankDropdown() {
+  const select = $("#rank-dd");
+  if (!select) return;
+  select.innerHTML = rankOptions()
+    .map((o) => `<option value="${o.id}"${o.on ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+}
+// Keeps the 2D segmented row, the compact dropdown, AND the 3D HUD's own
+// segmented row all in sync — call this everywhere ranking state changes.
+function syncRankControls() {
+  buildRankSeg($("#rank-seg"));
+  buildRankSeg($("#rank-seg-3d"));
+  buildRankDropdown();
 }
 
 function initChrome() {
@@ -769,16 +850,20 @@ function initChrome() {
   const modes = S.registry.meta.modes;
   segButtons($("#mode-seg"),
     Object.keys(modes).map((id) => ({ id, label: modes[id].label, on: id === S.mode })),
-    (id) => { S.mode = id; buildRankSeg($("#rank-seg")); buildRankSeg($("#rank-seg-3d")); refresh(); S.three?.setMode?.(); renderFavoritesList(); });
-  buildRankSeg($("#rank-seg"));
+    (id) => { S.mode = id; syncRankControls(); refresh(); S.three?.setMode?.(); renderFavoritesList(); });
+  syncRankControls();
+  $("#rank-dd").addEventListener("change", (e) => applyRanking(e.target.value));
 
-  $("#view-seg").querySelectorAll("button").forEach((b) =>
-    b.addEventListener("click", () => {
-      $("#view-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
-      b.classList.add("on");
-      S.view = b.dataset.v;
-      refresh();
-    }));
+  // View: By venue / By topic / All / Favourites — segmented row (wide
+  // viewports) + compact dropdown (task 12's breakpoint), always in sync.
+  function setView(v) {
+    S.view = v;
+    $("#view-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
+    $("#view-dd").value = v;
+    refresh();
+  }
+  $("#view-seg").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.v)));
+  $("#view-dd").addEventListener("change", (e) => setView(e.target.value));
 
   const nowYear = new Date().getFullYear();
   const covNote = $("#cov-note");
@@ -791,16 +876,21 @@ function initChrome() {
     covNote.classList.toggle("show", beyond5);
   }
 
-  $("#win-seg").querySelectorAll("button").forEach((b) =>
-    b.addEventListener("click", () => {
-      $("#win-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
-      b.classList.add("on");
-      S.win = b.dataset.w;
-      $("#yearpick").classList.toggle("show", S.win === "year");
-      $("#custompick").classList.toggle("show", S.win === "custom");
-      updateCoverageNote();
-      refresh();
-    }));
+  // Window: same segmented-row + compact-dropdown pairing as View. The
+  // typed-year (#yearpick) and custom-window (#custompick) inline inputs
+  // stay reachable regardless of which control picked "Year…"/"Custom…" —
+  // they're shown/hidden off S.win, not off which UI triggered it.
+  function setWindow(id) {
+    S.win = id;
+    $("#win-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.w === id));
+    $("#win-dd").value = id;
+    $("#yearpick").classList.toggle("show", id === "year");
+    $("#custompick").classList.toggle("show", id === "custom");
+    updateCoverageNote();
+    refresh();
+  }
+  $("#win-seg").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => setWindow(b.dataset.w)));
+  $("#win-dd").addEventListener("change", (e) => setWindow(e.target.value));
 
   // custom time window: "last X <unit>" — small inline UI in the same style
   // as the typed-year control. Applying (Enter, blur or "Go") validates to a
@@ -811,6 +901,7 @@ function initChrome() {
   const customUnitSelect = $("#custom-unit");
   const customApplyBtn = $("#custom-apply");
   const customSegBtn = $("#win-custom");
+  const customDdOpt = $("#win-dd-custom-opt");
   function applyCustom() {
     let n = Math.round(Number(customNInput.value));
     if (!Number.isFinite(n) || n < 1) n = 1;
@@ -822,6 +913,7 @@ function initChrome() {
     S.customUnit = unit;
     S.customApplied = true;
     customSegBtn.textContent = `Custom: ${customWindowLabel()}`;
+    customDdOpt.textContent = `Custom: ${customWindowLabel()}`;
     if (S.win === "custom") { updateCoverageNote(); refresh(); }
   }
   customNInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyCustom(); } });
@@ -892,16 +984,17 @@ function initChrome() {
   const body = document.body;
   const root = document.documentElement;
 
-  // serif toggle (default off — see CSS: body.serif restores the academic
-  // serif on paper titles / modal titles / abstracts only)
-  const serifBtn = $("#btn-serif");
+  // font toggle (default sans — see CSS: body.serif restores the academic
+  // serif on paper titles / modal titles / abstracts only). Lives in the
+  // Display popover as a Sans/Serif row (moved out of the header in v7).
   function setSerif(on, persist = true) {
     Prefs.serif = on;
     body.classList.toggle("serif", on);
-    serifBtn.classList.toggle("on", on);
+    $("#font-seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", (b.dataset.font === "serif") === on));
     if (persist) savePrefs();
   }
-  serifBtn.addEventListener("click", () => setSerif(!body.classList.contains("serif")));
+  $("#font-seg").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => setSerif(b.dataset.font === "serif")));
   setSerif(Prefs.serif, false);
 
   // feed width (Display popover; replaces the old standalone Wide toggle —
@@ -962,7 +1055,7 @@ function initChrome() {
   cardwSlider.addEventListener("input", () => setCardW(Number(cardwSlider.value)));
   cardhSlider.addEventListener("input", () => setCardH(Number(cardhSlider.value)));
   $("#display-reset").addEventListener("click", () => {
-    setZoom(100); setCardW(420); setCardH(430); setFeedWidth("default"); setCardStyle("book");
+    setZoom(100); setCardW(420); setCardH(430); setFeedWidth("default"); setCardStyle("book"); setSerif(false);
   });
 
   const displayBtn = $("#btn-display");
@@ -997,7 +1090,7 @@ function initChrome() {
     else if (!on && i !== -1) Prefs.favorites.splice(i, 1);
     if (Prefs.favoritesEnabled) savePrefs();
     renderFavoritesList();
-    if (S.rankMode === "favorites") { refresh(); S.three?.setRanking?.(); }
+    if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
   }
 
   function renderFavoritesList() {
@@ -1023,10 +1116,101 @@ function initChrome() {
   const CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
   function circledNumber(n) { return n >= 1 && n <= 20 ? CIRCLED[n - 1] : `(${n})`; }
 
+  // Re-order favourites: a drag-to-reorder ranked list of just the ticked
+  // favourites (pointer events — mouse + touch), replacing the checkbox
+  // list until "Done". Prefs.favorites is itself the ordered rank list
+  // (click order = rank — see toggleFavorite above), so reordering is just
+  // rewriting that array; ranks everywhere (badge numbers, Favourites
+  // ranking mode in 2D, 3D shelving) all read from it, no extra wiring.
+  const favReorderBtn = $("#fav-reorder");
+  const favReorderList = $("#fav-reorder-list");
+  const favReorderDone = $("#fav-reorder-done");
+  const favPersistRow = $(".fav-persist-row");
+
+  function commitReorderFromDom() {
+    const ids = [...favReorderList.querySelectorAll(".fav-reorder-row")].map((r) => r.dataset.jid);
+    Prefs.favorites = ids;
+    if (Prefs.favoritesEnabled) savePrefs();
+    if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
+  }
+
+  function renderReorderList() {
+    favReorderList.innerHTML = "";
+    let dragEl = null;
+    Prefs.favorites.forEach((jid, i) => {
+      const j = journalById(jid);
+      if (!j) return; // stale id (e.g. journal removed from registry) — skip, harmless
+      const row = el("div", "fav-reorder-row");
+      row.dataset.jid = jid;
+      row.innerHTML = `<span class="fav-drag-handle" aria-hidden="true">⠿</span>
+        <span class="fav-rank">${circledNumber(i + 1)}</span>
+        <span class="fav-name">${esc(j.name)}</span>`;
+      row.addEventListener("pointerdown", (e) => {
+        dragEl = row;
+        row.classList.add("dragging");
+        row.setPointerCapture(e.pointerId);
+      });
+      row.addEventListener("pointermove", (e) => {
+        if (dragEl !== row) return;
+        const rows = [...favReorderList.querySelectorAll(".fav-reorder-row")];
+        const target = rows.find((r) => {
+          if (r === row) return false;
+          const rect = r.getBoundingClientRect();
+          return e.clientY > rect.top && e.clientY < rect.bottom;
+        });
+        if (target) {
+          // Move TARGET around the dragged row, never the row itself —
+          // insertBefore()-ing the pointer-captured element mid-drag
+          // silently releases its pointer capture in Chromium (moving it
+          // detaches + reattaches it), which would abort the drag after
+          // exactly one reorder. Relocating the other row achieves the same
+          // resulting order without ever touching row's DOM position.
+          const before = e.clientY < target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
+          favReorderList.insertBefore(target, before ? row.nextSibling : row);
+        }
+      });
+      const endDrag = () => {
+        if (dragEl !== row) return;
+        row.classList.remove("dragging");
+        dragEl = null;
+        commitReorderFromDom();
+        // renumber the rank badges in place without a full re-render (keeps
+        // DOM order the drag just produced)
+        favReorderList.querySelectorAll(".fav-reorder-row").forEach((r, idx) => {
+          r.querySelector(".fav-rank").textContent = circledNumber(idx + 1);
+        });
+      };
+      row.addEventListener("pointerup", endDrag);
+      row.addEventListener("pointercancel", endDrag);
+      favReorderList.append(row);
+    });
+  }
+
+  function enterReorderMode() {
+    favList.style.display = "none";
+    favPersistRow.style.display = "none";
+    $("#fav-clear").style.display = "none";
+    favReorderBtn.style.display = "none";
+    favReorderList.style.display = "block";
+    favReorderDone.style.display = "block";
+    renderReorderList();
+  }
+  function exitReorderMode() {
+    favList.style.display = "";
+    favPersistRow.style.display = "";
+    $("#fav-clear").style.display = "";
+    favReorderBtn.style.display = "";
+    favReorderList.style.display = "none";
+    favReorderDone.style.display = "none";
+    renderFavoritesList();
+  }
+  favReorderBtn.addEventListener("click", enterReorderMode);
+  favReorderDone.addEventListener("click", exitReorderMode);
+
   favBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     closeDisplayPopover();
-    renderFavoritesList();
+    exitReorderMode(); // always open on the checkbox view, not mid-reorder
     favPop.classList.toggle("show");
   });
   document.addEventListener("click", (e) => {
@@ -1042,7 +1226,7 @@ function initChrome() {
     Prefs.favorites = [];
     if (Prefs.favoritesEnabled) savePrefs();
     renderFavoritesList();
-    if (S.rankMode === "favorites") { refresh(); S.three?.setRanking?.(); }
+    if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
   });
 
   $("#btn-3d").addEventListener("click", async () => {

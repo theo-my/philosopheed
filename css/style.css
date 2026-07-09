@@ -74,6 +74,24 @@
   --page-edge: rgba(255, 255, 255, 0.06);
 }
 
+/* Dark-mode scrollbars — page, card lists, popovers, modals. Firefox via
+   scrollbar-color, Chromium/WebKit via the ::-webkit-scrollbar* pseudo
+   elements; both scoped to dark mode only (explicit data-theme="dark", or
+   system dark with no explicit override — same scoping the colour
+   variables above use, so an explicit ?data-theme="light" always wins). */
+:root[data-theme="dark"] { scrollbar-color: #4a4a46 #1a1a19; }
+:root[data-theme="dark"] ::-webkit-scrollbar { width: 12px; height: 12px; }
+:root[data-theme="dark"] ::-webkit-scrollbar-track { background: #1a1a19; }
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #4a4a46; border-radius: 8px; border: 2px solid #1a1a19; }
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #5c5c57; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { scrollbar-color: #4a4a46 #1a1a19; }
+  :root:not([data-theme="light"]) ::-webkit-scrollbar { width: 12px; height: 12px; }
+  :root:not([data-theme="light"]) ::-webkit-scrollbar-track { background: #1a1a19; }
+  :root:not([data-theme="light"]) ::-webkit-scrollbar-thumb { background: #4a4a46; border-radius: 8px; border: 2px solid #1a1a19; }
+  :root:not([data-theme="light"]) ::-webkit-scrollbar-thumb:hover { background: #5c5c57; }
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {
@@ -141,7 +159,7 @@ header.site {
 .popover {
   display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-  box-shadow: var(--shadow); padding: 14px 16px; width: 230px;
+  box-shadow: var(--shadow); padding: 14px 16px; width: 320px;
 }
 .popover.show { display: block; }
 .popover label { display: block; font-size: 12.5px; color: var(--ink-2); margin-bottom: 10px; }
@@ -189,6 +207,23 @@ header.site {
 .fav-persist-row input { accent-color: var(--accent); }
 .fav-empty { color: var(--muted); font-size: 12.5px; padding: 10px 2px; }
 
+/* favourites re-order — drag-to-rank list of the ticked favourites (pointer
+   events; touch-capable), replacing the checkbox list until "Done" */
+.fav-reorder-list { overflow-y: auto; max-height: 320px; margin: 8px 0 10px; scrollbar-width: thin; }
+.fav-reorder-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 4px;
+  border-bottom: 1px solid var(--grid); font-size: 13px;
+  background: var(--surface); user-select: none; cursor: grab; touch-action: none;
+}
+.fav-reorder-row:last-child { border-bottom: 0; }
+.fav-reorder-row.dragging { opacity: 0.65; background: var(--accent-soft); cursor: grabbing; position: relative; z-index: 5; }
+.fav-drag-handle { color: var(--muted); font-size: 15px; flex: 0 0 auto; }
+.fav-reorder-row .fav-rank {
+  flex: 0 0 auto; min-width: 20px; text-align: center; font-variant-numeric: tabular-nums;
+  color: var(--accent); font-weight: 700; font-size: 12.5px;
+}
+.fav-reorder-row .fav-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 600; }
+
 .cov-note {
   display: none; color: var(--muted); font-size: 12px; padding: 6px 0 0; line-height: 1.4;
 }
@@ -220,6 +255,22 @@ header.site {
 }
 .basis-note { color: var(--muted); font-size: 12.5px; }
 .count-note { color: var(--muted); font-size: 12.5px; margin-left: auto; }
+
+/* Compact dropdown equivalents for View/Ranking/Window (task 12) — hidden
+   on wide viewports (the full segmented rows show instead); swapped in at
+   the breakpoint below, where the segmented rows would otherwise wrap
+   across several cramped lines. Each shows its own label ("View", etc.) so
+   the control is self-explanatory even with the row label hidden. */
+.dd-wrap { display: none; align-items: center; gap: 6px; }
+.dd-wrap .dd-label {
+  color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+}
+.dd-wrap select {
+  padding: 6px 8px; border: 1px solid var(--baseline); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 12.5px;
+  max-width: 42vw;
+}
+.dd-wrap select:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
 /* ------------------------------------------------------------------ main */
 main { padding: 18px 0 80px; }
@@ -351,6 +402,18 @@ body:not([data-cardstyle="basic"]) .tcard::before {
 .tcard { margin-bottom: 16px; }
 .tcard .jname { font-size: 17px; }
 
+/* per-card drag-to-resize handle (topic cards) — bottom edge, pointer
+   events (works with touch), adjusts that one card's .jbody height */
+.card-resize-handle {
+  height: 11px; cursor: ns-resize; touch-action: none;
+  display: flex; align-items: center; justify-content: center;
+  border-top: 1px solid var(--grid);
+}
+.card-resize-handle::before {
+  content: ""; width: 36px; height: 4px; border-radius: 3px; background: var(--baseline);
+}
+.card-resize-handle:hover::before, .card-resize-handle:active::before { background: var(--accent); }
+
 /* "All" view — every publication in the window as one flat, newest-first,
    cross-journal list (same jcard/tcard book-spine + paperRow treatment as
    the topic view, so it picks up card style / journal colour accents for
@@ -444,14 +507,19 @@ body.serif .modal .abstract { font-family: var(--serif); }
   z-index: 64; pointer-events: none; opacity: 0; transition: opacity 0.6s ease;
 }
 .side-shelf-hint.show { opacity: 0.82; }
-.three-panel .lectern-note { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+.three-panel .reading-note { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+/* Reading panel — a screen-space overlay in front of the (unmoved) camera;
+   see js/threeview.js openBook()/renderPanel(). Sized generously so it
+   reads as the primary "book" surface, not a small side note. */
 .three-panel {
-  position: absolute; top: 66px; right: 20px; bottom: 20px; width: 400px; z-index: 66;
+  position: absolute; top: 66px; right: 20px; bottom: 20px; width: 460px; z-index: 66;
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: var(--shadow); padding: 16px 18px; overflow-y: auto; display: none;
 }
 .three-panel.show { display: block; }
-.three-panel h3 { margin: 0 0 2px; font-size: 18px; font-family: var(--serif); }
+.three-panel .panel-headrow { display: flex; align-items: flex-start; gap: 10px; }
+.three-panel h3 { margin: 0 0 2px; font-size: 18px; font-family: var(--serif); flex: 1; min-width: 0; }
+.three-panel .panel-headrow .closebtn { flex: 0 0 auto; }
 .three-panel .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
 
 /* "Aim to view" (device-orientation look-around) — only ever shown on
@@ -501,8 +569,15 @@ body.touch-device #btn-aim { display: inline-flex; }
   .rankbadge, .viewall { min-height: 28px; }
 
   .subrow { gap: 6px 8px; padding: 6px 0 8px; }
-  .subrow .label { flex-basis: 100%; height: 0; overflow: hidden; } /* stacked labels waste space on phones */
+  .subrow .label { display: none; } /* redundant with the dropdowns' own inline labels below */
   .yearpick input[type="number"], .custompick input[type="number"] { width: 60px; }
+
+  /* View/Ranking/Window collapse into compact dropdowns (task 12) — this
+     supersedes the seg-wrapping rules above FOR THOSE THREE controls only;
+     mode-seg and the Display-popover segments are unaffected. Goal: the
+     subrow drops from several wrapped button rows to one compact row. */
+  #view-seg, #rank-seg, #win-seg { display: none; }
+  .dd-wrap { display: inline-flex; }
 
   main { padding: 10px 0 60px; } /* reclaim vertical space the compacted header freed up */
 
@@ -564,5 +639,13 @@ body.touch-device #btn-aim { display: inline-flex; }
   .seg.small button { padding: 4px 7px; min-height: 24px; }
   .subrow { gap: 4px 6px; padding: 4px 0 6px; }
   main { padding: 6px 0 40px; }
+
+  /* View/Ranking/Window -> compact dropdowns here too — a short landscape
+     phone (e.g. 844x390) doesn't trip the max-width:640px rule above (it's
+     plenty WIDE, just very SHORT), but the wrapped seg rows are exactly as
+     cramped vertically, so this breakpoint needs its own copy. */
+  .subrow .label { display: none; }
+  #view-seg, #rank-seg, #win-seg { display: none; }
+  .dd-wrap { display: inline-flex; }
 }
 
