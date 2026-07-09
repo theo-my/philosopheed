@@ -65,6 +65,7 @@ NOISE_TITLE = re.compile(
     r"list of referees|referees|thanks to (our )?referees|manuscript reviewers|"
     r"from the editors?\b|notes on contributors|announcements?\b|"
     r"reviews? of\b|book reviews?|review essays?|critical notices?|"
+    r"title pending|title to be announced|"
     r"erratum|corrigendum|correction to[:\s]|retraction( notice)?[:\s]?)",
     re.I,
 )
@@ -230,9 +231,12 @@ def cr_get(params: dict, retries: int = 5) -> dict:
     raise RuntimeError("CrossRef unreachable after retries")
 
 
-def harvest_crossref(journal: dict, from_date: str) -> list[dict]:
+def harvest_crossref(journal: dict, from_date: str, by_index_date: bool = False) -> list[dict]:
     issn_filter = ",".join(f"issn:{i}" for i in journal["issn"])
-    flt = f"{issn_filter},type:journal-article,from-pub-date:{from_date}"
+    # from-index-date catches metadata UPDATES to old records (e.g. Ergo
+    # replacing "Title Pending" placeholders); from-pub-date only finds new papers
+    datef = "from-index-date" if by_index_date else "from-pub-date"
+    flt = f"{issn_filter},type:journal-article,{datef}:{from_date}"
     cursor = "*"
     papers, seen, total = [], set(), None
     while True:
@@ -488,7 +492,7 @@ def main() -> int:
             since = js.get("last_update", j["backfill_from"])
             since = (date.fromisoformat(since) - timedelta(days=UPDATE_OVERLAP_DAYS)).isoformat()
             log(f"UPDATE {j['id']} since {since}")
-            papers = harvest_crossref(j, since)
+            papers = harvest_crossref(j, since, by_index_date=True)
             rss_abs = harvest_rss(j)
             for p in papers:
                 if not p["abstract"] and p["doi"] in rss_abs:

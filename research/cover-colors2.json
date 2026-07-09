@@ -1,0 +1,218 @@
+{
+ "nous": {
+  "hex": "#2243aa",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/3/35/Nous_journal_cover.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "mind": {
+  "hex": "#008e6b",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/d/d5/Mind_%28journal%29.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "ajp": {
+  "hex": "#cc3300",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/f/fc/Australasian_Journal_of_Philosophy_%28cover%29.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "cjp": {
+  "hex": "#dd5454",
+  "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Cover_image_of_the_Canadian_Journal_of_Philosophy.jpg/500px-Cover_image_of_the_Canadian_Journal_of_Philosophy.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "inquiry": {
+  "hex": "#5498dd",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/c/ca/Inquiry_journal_cover.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "analysis": {
+  "hex": "#ff3232",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/a/af/Analysis_%28journal%29.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "sjp": {
+  "hex": "#00478e",
+  "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/SJP_cover_1.jpg/500px-SJP_cover_1.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "res-phil": {
+  "hex": "#c9b372",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/4/41/Schoolmancover.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "ipq": {
+  "hex": "#729ec9",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/a/a7/Ipqcover2.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "monist": {
+  "hex": "#771717",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/8/8e/Monistcover.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "phil-topics": {
+  "hex": "#c9b372",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/0/0f/Philtopcover2.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "jmp": {
+  "hex": "#aa22a9",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/8/8c/Journal_of_Moral_Philosophy_%28journal%29_cover.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "utilitas": {
+  "hex": "#aa8822",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/c/cd/Utilitas_journal_cover.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "ppe": {
+  "hex": "#c9c972",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/8/8e/Politics%2C_Philosophy_%26_Economics_journal_front_cover.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "jap": {
+  "hex": "#177747",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/3/37/Journal_of_Applied_Philosophy_2018.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "jme": {
+  "hex": "#771776",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/b/b0/Journal_of_Medical_Ethics.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "phil-sci": {
+  "hex": "#c66b6b",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/9/93/Philosophy_of_Science_%28journal%29.gif",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "persp-sci": {
+  "hex": "#6b98c6",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/6/6c/Perspectiveslowres.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "techne": {
+  "hex": "#174777",
+  "image_url": "https://upload.wikimedia.org/wikipedia/en/6/65/Techn%C3%A9_%28academic_journal%29.jpg",
+  "method": "wikipedia",
+  "sampled": true
+ },
+ "philosophy": {
+  "hex": "#ff9932",
+  "image_url": "https://static.cambridge.org/covers/PHI_0_0_0/philosophy.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "econ-phil": {
+  "hex": "#008e8e",
+  "image_url": "https://static.cambridge.org/covers/EAP_0_0_0/economics_& philosophy.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "japa": {
+  "hex": "#729ec9",
+  "image_url": "https://static.cambridge.org/covers/APA_0_0_0/journal_of the american philosophical association.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "thought": {
+  "hex": "#c9b372",
+  "image_url": "https://www.pdcnet.org/pdc/productspdc_sandbox2.nsf/LUprodukt/pdc_thought/$file/thought.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "pq": {
+  "hex": "#00238e",
+  "image_url": "https://oup.silverchair-cdn.com/oup/backfile/Content_public/Journal/pq/Issue/76/3/1/m_cover.jpeg?Expires=1786594706&Signature=yMKXkKhSrB-ItUEAEG-m~EtWNGpqVsXKZzluD2QAGwVcqbNyxX~TqiezJWtyfkKZ42dL-vHkgBMvigXBzK7~1C-uoL9591~7r~LgWtQ3btMIUm7LllOPvFn-oCn8UfUIqP0p9K6LmI8VwqOQgXmczIc2bY839eFSkBreO672Vn5sdyLkz-KsaWWGQ2YDVyXzi5v0ZEyDsE6NC5FGgFvIavbCdfQinfdsEtZq9L7oQ-Mbpq6U7cVU9EtJtV9F-ZnVIItIV6ZKrxc4OivJlWB2c9D5-wkQ1vJdnUwGnC4FoQWPEIH3OplfPD5SJ2I-B9JO8mqGoXBynugoSfIwbfs6aw__&Key-Pair-Id=APKAIE5G5CRDK6RD3PGA",
+  "method": "publisher",
+  "sampled": true
+ },
+ "pas": {
+  "hex": "#6b82c6",
+  "image_url": "https://oup.silverchair-cdn.com/oup/backfile/Content_public/Journal/aristotelian/Issue/126/1/1/m_aristotelian_126_1cover.jpeg?Expires=1786594888&Signature=K03MdZZMBz4aNkScx1zkYZP-eXWyqAeXNYiV0EMgTR5w~WJiDJ2C-PUmWISQOrChM5bh31yVZAIvfRu3JayfHLh2Xy~TbdpEo8vmX3JCD3obseDemVUFulaDqZ9saX3wJ7gcikIWCZnEpkrvdRWAyrR3KhX6rmq0TOqNTNIUDtgrlexbnwI-2CEsLLPDFEaVXLdPTSRyq93SgLUyD1gPpT5x5mmH6taDsNFiMqBRwK43Y4RA6w4JR~eGfD5-oMTZuwsJfR03PiZrlad4Kw813W~IWM15J2WpFjVwQ701N7f-r1q4C7LTXOfEwF6dG67LaWlGfqIgHEZDMGgPIgaKUQ__&Key-Pair-Id=APKAIE5G5CRDK6RD3PGA",
+  "method": "publisher",
+  "sampled": true
+ },
+ "shps": {
+  "hex": "#ff3265",
+  "image_url": "https://ars.els-cdn.com/content/image/X00393681.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "ppr": {
+  "hex": "#ffce3d",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/19331592.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "ppq": {
+  "hex": "#b3c972",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/14680114.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "ejp": {
+  "hex": "#cc0032",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/14680378.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "phil-issues": {
+  "hex": "#653893",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/17582237.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "ratio": {
+  "hex": "#ff3232",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/14679329.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "metaphilosophy": {
+  "hex": "#2265aa",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/14679973.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "phil-perspectives": {
+  "hex": "#8e4700",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/15208583.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "ppa": {
+  "hex": "#72c9b3",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/10884963.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "jpp": {
+  "hex": "#c97272",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/14679760.jpg",
+  "method": "publisher",
+  "sampled": true
+ },
+ "bioethics": {
+  "hex": "#5d9ede",
+  "image_url": "https://onlinelibrary.wiley.com/pb-assets/journal-banners/14678519.jpg",
+  "method": "publisher",
+  "sampled": true
+ }
+}

@@ -44,7 +44,7 @@ function spineTexture(journal, rank, count) {
   g.fillRect(0, 0, W, H);
   // rank
   g.fillStyle = text;
-  g.font = "bold 64px system-ui, sans-serif";
+  g.font = 'bold 64px "Century Schoolbook", "CMU Serif", Georgia, serif';
   g.textAlign = "center"; g.textBaseline = "middle";
   g.fillText(rank === Infinity ? "–" : String(rank), W / 2, 70);
   g.fillRect(W / 2 - 40, 125, 80, 4);
@@ -55,10 +55,10 @@ function spineTexture(journal, rank, count) {
   g.textAlign = "left";
   let name = journal.name;
   let size = 56;
-  g.font = `bold ${size}px system-ui, sans-serif`;
+  g.font = `bold ${size}px "Century Schoolbook", "CMU Serif", Georgia, serif`;
   while (g.measureText(name).width > 700 && size > 30) {
     size -= 2;
-    g.font = `bold ${size}px system-ui, sans-serif`;
+    g.font = `bold ${size}px "Century Schoolbook", "CMU Serif", Georgia, serif`;
   }
   if (g.measureText(name).width > 700) {
     while (g.measureText(name + "…").width > 700) name = name.slice(0, -1);
@@ -71,7 +71,7 @@ function spineTexture(journal, rank, count) {
   g.translate(W / 2, H - 20);
   g.rotate(-Math.PI / 2);
   g.textAlign = "left";
-  g.font = "34px system-ui, sans-serif";
+  g.font = '34px "Century Schoolbook", "CMU Serif", Georgia, serif';
   g.globalAlpha = 0.85;
   g.fillText(`${count}`, 0, 0);
   g.restore();
@@ -177,9 +177,9 @@ function spreadTexture() {
   g.fillStyle = gut;
   g.fillRect(W / 2 - 60, 0, 120, H);
   g.fillStyle = "#2b2a26";
-  g.font = "bold 44px system-ui, sans-serif";
+  g.font = 'bold 44px "Century Schoolbook", "CMU Serif", Georgia, serif';
   g.fillText(journal.name, 70, 80);
-  g.font = "30px system-ui, sans-serif";
+  g.font = '30px "Century Schoolbook", "CMU Serif", Georgia, serif';
   g.fillStyle = "#7a776e";
   g.textAlign = "right";
   g.fillText(`spread ${page + 1} / ${pages}`, W - 70, 80);
@@ -193,10 +193,10 @@ function spreadTexture() {
     const x = colX[i < 5 ? 0 : 1];
     const y = 170 + (i % 5) * 200;
     g.fillStyle = "#1d1c19";
-    g.font = "bold 34px system-ui, sans-serif";
+    g.font = 'bold 34px "Century Schoolbook", "CMU Serif", Georgia, serif';
     wrapText(g, p.title, x, y, colW, 42, 2);
     g.fillStyle = "#6d6a61";
-    g.font = "28px system-ui, sans-serif";
+    g.font = '28px "Century Schoolbook", "CMU Serif", Georgia, serif';
     const byline = `${(p.authors || []).join(", ")} · ${p.published}`;
     wrapText(g, byline, x, y + 92, colW, 34, 1);
     g.strokeStyle = "rgba(0,0,0,0.08)";
@@ -204,11 +204,11 @@ function spreadTexture() {
   });
   if (!slice.length) {
     g.fillStyle = "#7a776e";
-    g.font = "34px system-ui, sans-serif";
+    g.font = '34px "Century Schoolbook", "CMU Serif", Georgia, serif';
     g.fillText("No papers in the current window.", 70, 200);
   }
   g.fillStyle = "#a29e93";
-  g.font = "26px system-ui, sans-serif";
+  g.font = '26px "Century Schoolbook", "CMU Serif", Georgia, serif';
   g.fillText("click right page to turn ▸", 70, H - 40);
   const tex = new THREE.CanvasTexture(cv);
   tex.anisotropy = 8;

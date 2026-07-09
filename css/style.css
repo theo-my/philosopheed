@@ -1,5 +1,24 @@
 /* Philosopheed — dashboard styles. Palette per dataviz reference instance. */
 
+/* Computer Modern (the LaTeX face), vendored; Century Schoolbook preferred
+   where installed. UI chrome stays in the system sans; titles/headings and
+   abstracts wear the serif. */
+@font-face {
+  font-family: "CMU Serif";
+  src: url("../vendor/cmu-serif-500-roman.woff2") format("woff2");
+  font-weight: 400 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "CMU Serif";
+  src: url("../vendor/cmu-serif-700-roman.woff2") format("woff2");
+  font-weight: 600 800; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "CMU Serif";
+  src: url("../vendor/cmu-serif-500-italic.woff2") format("woff2");
+  font-weight: 400 500; font-style: italic; font-display: swap;
+}
+
 :root {
   --page: #f9f9f7;
   --surface: #fcfcfb;
@@ -14,6 +33,8 @@
   --si: #4a3aa7;           /* violet — special-issue badge */
   --gold: #eda100;         /* rank badges top-3 */
   --shadow: 0 8px 30px rgba(11, 11, 11, 0.12);
+  --serif: "Century Schoolbook", "New Century Schoolbook", "CMU Serif",
+           Cambria, Georgia, serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -69,7 +90,7 @@ header.site {
   padding: 10px 0; flex-wrap: wrap;
 }
 .brand { display: flex; align-items: baseline; gap: 10px; margin-right: 8px; }
-.brand h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+.brand h1 { font-size: 23px; margin: 0; letter-spacing: -0.01em; font-family: var(--serif); }
 .brand h1 .feed { color: var(--accent); }
 .brand .tag { color: var(--muted); font-size: 12.5px; }
 
@@ -138,7 +159,7 @@ main { padding: 18px 0 80px; }
   font-variant-numeric: tabular-nums;
 }
 .rankbadge.unranked { background: var(--grid); color: var(--muted); font-size: 12px; }
-.jname { font-weight: 650; font-size: 15.5px; line-height: 1.25; }
+.jname { font-weight: 700; font-size: 16px; line-height: 1.25; font-family: var(--serif); }
 .jmeta { color: var(--muted); font-size: 12px; }
 .jceased { color: var(--muted); font-size: 11px; border: 1px solid var(--baseline); border-radius: 5px; padding: 0 5px; }
 .jright { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
@@ -147,7 +168,12 @@ main { padding: 18px 0 80px; }
 .spark { display: block; }
 .spark rect { fill: var(--jc, var(--accent)); }
 
-.jbody { border-top: 1px solid var(--grid); padding: 2px 15px 10px; }
+.jbody {
+  border-top: 1px solid var(--grid); padding: 2px 15px 10px;
+  max-height: 430px; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.jcard.expanded .jbody { max-height: none; overflow-y: visible; }
 .paper .sichip {
   display: inline-block; background: var(--si); color: #fff; font-size: 9.5px;
   font-weight: 700; border-radius: 4px; padding: 0 5px; margin-right: 5px;
@@ -175,7 +201,7 @@ main { padding: 18px 0 80px; }
 }
 .paper:last-child { border-bottom: 0; }
 .paper:hover { background: var(--accent-soft); }
-.ptitle { font-weight: 550; font-size: 14.5px; color: var(--ink); }
+.ptitle { font-weight: 600; font-size: 15px; color: var(--ink); font-family: var(--serif); line-height: 1.3; }
 .pmeta { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
 .pmeta .pj { color: var(--ink-2); font-weight: 550; }
 .showmore {
@@ -187,7 +213,8 @@ main { padding: 18px 0 80px; }
 /* topic view */
 .tsection { margin-bottom: 26px; }
 .tsection h2 {
-  font-size: 17px; margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px;
+  font-size: 18px; margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px;
+  font-family: var(--serif);
 }
 .tsection h2 .tcount { color: var(--muted); font-size: 13px; font-weight: 400; }
 .tsection .tbody {
@@ -212,10 +239,10 @@ main { padding: 18px 0 80px; }
   box-shadow: var(--shadow); max-width: 760px; width: calc(100vw - 48px);
   max-height: 82vh; overflow-y: auto; padding: 26px 30px;
 }
-.modal h3 { margin: 0 0 6px; font-size: 19px; line-height: 1.35; }
+.modal h3 { margin: 0 0 6px; font-size: 21px; line-height: 1.35; font-family: var(--serif); }
 .modal .authors { color: var(--ink-2); margin-bottom: 4px; }
 .modal .venueline { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-.modal .abstract { color: var(--ink-2); font-size: 14.5px; }
+.modal .abstract { color: var(--ink-2); font-size: 15.5px; font-family: var(--serif); line-height: 1.55; }
 .modal .abstract.none { color: var(--muted); font-style: italic; }
 .modal .silabel { color: var(--si); font-size: 13px; font-weight: 600; margin-bottom: 8px; }
 .modal .actions { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
@@ -247,7 +274,7 @@ main { padding: 18px 0 80px; }
   box-shadow: var(--shadow); padding: 16px 18px; overflow-y: auto; display: none;
 }
 .three-panel.show { display: block; }
-.three-panel h3 { margin: 0 0 2px; font-size: 17px; }
+.three-panel h3 { margin: 0 0 2px; font-size: 18px; font-family: var(--serif); }
 .three-panel .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
 
 /* mobile-ish */

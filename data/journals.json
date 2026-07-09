@@ -72,7 +72,7 @@
     "leiter": 2
    },
    "tags": [],
-   "color": "#2E4C8A"
+   "color": "#1b3588"
   },
   {
    "id": "phil-studies",
@@ -118,7 +118,7 @@
     "leiter": 3
    },
    "tags": [],
-   "color": "#097a3b"
+   "color": "#ffce3d"
   },
   {
    "id": "synthese",
@@ -170,7 +170,7 @@
     "leiter": 4
    },
    "tags": [],
-   "color": "#1E5631"
+   "color": "#008e6b"
   },
   {
    "id": "ajp",
@@ -193,7 +193,7 @@
     "leiter": 6
    },
    "tags": [],
-   "color": "#0c6f78"
+   "color": "#cc3300"
   },
   {
    "id": "phil-review",
@@ -262,7 +262,7 @@
     "leiter": 16
    },
    "tags": [],
-   "color": "#097e67"
+   "color": "#b3c972"
   },
   {
    "id": "erkenntnis",
@@ -312,7 +312,7 @@
     "leiter": 9
    },
    "tags": [],
-   "color": "#10275E"
+   "color": "#002084"
   },
   {
    "id": "ejp",
@@ -335,7 +335,7 @@
     "leiter": 16
    },
    "tags": [],
-   "color": "#0c89a3"
+   "color": "#a30027"
   },
   {
    "id": "cjp",
@@ -358,7 +358,7 @@
     "leiter": 12
    },
    "tags": [],
-   "color": "#0c5680"
+   "color": "#dd5454"
   },
   {
    "id": "phil-issues",
@@ -383,7 +383,7 @@
    "tags": [
     "annual"
    ],
-   "color": "#093e7a"
+   "color": "#653893"
   },
   {
    "id": "inquiry",
@@ -406,7 +406,7 @@
     "leiter": 20
    },
    "tags": [],
-   "color": "#0e5086"
+   "color": "#5498dd"
   },
   {
    "id": "japa",
@@ -431,7 +431,7 @@
    "tags": [
     "launched-2015"
    ],
-   "color": "#1038a6"
+   "color": "#5489bd"
   },
   {
    "id": "phil-imprint",
@@ -478,7 +478,7 @@
     "leiter": 10
    },
    "tags": [],
-   "color": "#1D4E9C"
+   "color": "#ff0909"
   },
   {
    "id": "apq",
@@ -524,7 +524,7 @@
     "leiter": 25
    },
    "tags": [],
-   "color": "#09157e"
+   "color": "#ff7d31"
   },
   {
    "id": "metaphilosophy",
@@ -546,7 +546,7 @@
     "db_am": 21
    },
    "tags": [],
-   "color": "#350ca3"
+   "color": "#2265aa"
   },
   {
    "id": "sjp",
@@ -568,7 +568,7 @@
     "db_am": 22
    },
    "tags": [],
-   "color": "#51097a"
+   "color": "#00478e"
   },
   {
    "id": "res-phil",
@@ -589,7 +589,7 @@
     "db_am": 24
    },
    "tags": [],
-   "color": "#681c27"
+   "color": "#bda354"
   },
   {
    "id": "dialectica",
@@ -657,7 +657,7 @@
     "leiter": 23
    },
    "tags": [],
-   "color": "#916908"
+   "color": "#bcc66b"
   },
   {
    "id": "philosophy",
@@ -679,7 +679,7 @@
     "db_am": 27
    },
    "tags": [],
-   "color": "#2513cb"
+   "color": "#ff9932"
   },
   {
    "id": "ipq",
@@ -700,7 +700,7 @@
     "db_am": 29
    },
    "tags": [],
-   "color": "#aab70b"
+   "color": "#6b78c6"
   },
   {
    "id": "rev-metaphysics",
@@ -745,7 +745,7 @@
    "tags": [
     "invited"
    ],
-   "color": "#6E2033"
+   "color": "#6b82c6"
   },
   {
    "id": "ergo",
@@ -790,7 +790,7 @@
    "tags": [
     "annual"
    ],
-   "color": "#7e097d"
+   "color": "#8e4700"
   },
   {
    "id": "monist",
@@ -811,7 +811,7 @@
     "leiter": 22
    },
    "tags": [],
-   "color": "#7B1E2B"
+   "color": "#771717"
   },
   {
    "id": "phil-topics",
@@ -831,7 +831,7 @@
     "leiter": 25
    },
    "tags": [],
-   "color": "#81de0d"
+   "color": "#9ac66b"
   },
   {
    "id": "ethics",
@@ -880,7 +880,7 @@
    },
    "tags": [],
    "notes": "Editorial board resigned 2024 and founded Free & Equal; journal continues under Wiley.",
-   "color": "#1F5FA8"
+   "color": "#72c9b3"
   },
   {
    "id": "jpp",
@@ -907,7 +907,7 @@
     "ceased-2026"
    ],
    "notes": "Ceased 1 Jan 2026 after editor/board resignation. Successor: Political Philosophy (OLH).",
-   "color": "#a30c6c"
+   "color": "#c97272"
   },
   {
    "id": "jmp",
@@ -931,7 +931,7 @@
     "ethics": 4
    },
    "tags": [],
-   "color": "#A8232F"
+   "color": "#aa22a9"
   },
   {
    "id": "utilitas",
@@ -955,7 +955,7 @@
     "ethics": 5
    },
    "tags": [],
-   "color": "#420c80"
+   "color": "#aa8822"
   },
   {
    "id": "econ-phil",
@@ -979,7 +979,7 @@
     "ethics": 6
    },
    "tags": [],
-   "color": "#8c10a6"
+   "color": "#008e8e"
   },
   {
    "id": "jesp",
@@ -1028,7 +1028,7 @@
     "ethics": 8
    },
    "tags": [],
-   "color": "#55317c"
+   "color": "#c9c972"
   },
   {
    "id": "j-ethics",
@@ -1100,7 +1100,7 @@
     "ethics": 11
    },
    "tags": [],
-   "color": "#7a0927"
+   "color": "#177747"
   },
   {
    "id": "pol-phil",
@@ -1174,7 +1174,7 @@
    "tags": [
     "applied-adjacent"
    ],
-   "color": "#7e1509"
+   "color": "#5d9ede"
   },
   {
    "id": "jme",
@@ -1199,7 +1199,7 @@
     "applied-adjacent",
     "high-volume"
    ],
-   "color": "#2E5090"
+   "color": "#771776"
   },
   {
    "id": "bjps",
@@ -1245,7 +1245,7 @@
    },
    "tags": [],
    "notes": "Moved Chicago→Cambridge in 2023.",
-   "color": "#cb13a7"
+   "color": "#c66b6b"
   },
   {
    "id": "shps",
@@ -1268,7 +1268,7 @@
    },
    "tags": [],
    "notes": "Absorbed Parts B and C in 2021.",
-   "color": "#E9711C"
+   "color": "#ff0946"
   },
   {
    "id": "ejps",
@@ -1290,7 +1290,7 @@
     "philsci": 5
    },
    "tags": [],
-   "color": "#00238e"
+   "color": "#10008e"
   },
   {
    "id": "bio-phil",
@@ -1312,7 +1312,7 @@
     "philsci": 7
    },
    "tags": [],
-   "color": "#2243aa"
+   "color": "#3221aa"
   },
   {
    "id": "jgps",
@@ -1382,7 +1382,7 @@
    "tags": [
     "applied-adjacent"
    ],
-   "color": "#A31F34"
+   "color": "#6b98c6"
   },
   {
    "id": "phil-tech",
@@ -1426,7 +1426,7 @@
     "philtech": 2
    },
    "tags": [],
-   "color": "#cc0032"
+   "color": "#cc1800"
   },
   {
    "id": "eit",
@@ -1448,7 +1448,7 @@
     "philtech": 3
    },
    "tags": [],
-   "color": "#ff3265"
+   "color": "#ff4a31"
   },
   {
    "id": "see",
@@ -1564,7 +1564,7 @@
     "philtech": 8
    },
    "tags": [],
-   "color": "#229108"
+   "color": "#174777"
   },
   {
    "id": "dig-soc",

@@ -74,14 +74,16 @@ async function rowsForWindow() {
     const cut = iso(new Date(today - days * 864e5));
     return S.recent.filter((r) => r.published >= cut);
   }
-  // 5 years: stitch year files
+  // 5 years: stitch year files (newest first)
   const cut = iso(new Date(today - days * 864e5));
   const y0 = Number(cut.slice(0, 4));
   const years = [];
   for (let y = y0; y <= today.getFullYear(); y++) years.push(y);
   setStatus(`Loading ${years.length} archive years…`);
   const all = await Promise.all(years.map(loadYear));
-  return all.flat().filter((r) => r.published >= cut);
+  return all.flat()
+    .filter((r) => r.published >= cut)
+    .sort((a, b) => b.published.localeCompare(a.published));
 }
 
 // --------------------------------------------------------------- journals --
@@ -135,7 +137,10 @@ function applyColor(node, j) {
 function paperRow(r, showJournal) {
   const j = journalById(r.journal);
   const authors = (r.authors || []).join(", ");
-  const jn = showJournal ? `<span class="pj">${esc(j?.name || r.journal)}</span> · ` : "";
+  const jc = j?.color;
+  const jn = showJournal
+    ? `<span class="pj"${jc ? ` style="color:${jc}"` : ""}>${jc ? "● " : ""}${esc(j?.name || r.journal)}</span> · `
+    : "";
   const date = r.published;
   const b = el("button", "paper");
   const si = r.si ? `<span class="sichip" title="${esc(r.si)}">SI</span>` : "";
@@ -146,7 +151,7 @@ function paperRow(r, showJournal) {
 }
 
 // ------------------------------------------------------------ venue view --
-const PREVIEW = 6;
+const PREVIEW = 200;   // rows per scrollable card (6 visible, rest on scroll)
 
 function renderVenue(rows) {
   const byJ = new Map();
