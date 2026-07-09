@@ -38,6 +38,8 @@
   --zoom: 1;             /* card-grid zoom-out control */
   --card-min-w: 420px;   /* jgrid column minmax */
   --card-max-h: 430px;   /* jbody scroll cap (collapsed cards) */
+  --feedwidth: 1380px;   /* feed container max-width (Display popover) */
+  --page-edge: rgba(11, 11, 11, 0.07); /* book-card page-edge hairlines */
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -54,6 +56,7 @@
     --si: #9085e9;
     --gold: #c98500;
     --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    --page-edge: rgba(255, 255, 255, 0.06);
   }
 }
 :root[data-theme="light"] {
@@ -61,12 +64,14 @@
   --muted: #898781; --grid: #e1e0d9; --baseline: #c3c2b7;
   --border: rgba(11, 11, 11, 0.10); --accent: #2a78d6; --accent-soft: #cde2fb;
   --si: #4a3aa7; --gold: #eda100; --shadow: 0 8px 30px rgba(11, 11, 11, 0.12);
+  --page-edge: rgba(11, 11, 11, 0.07);
 }
 :root[data-theme="dark"] {
   --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7;
   --muted: #898781; --grid: #2c2c2a; --baseline: #383835;
   --border: rgba(255, 255, 255, 0.10); --accent: #3987e5; --accent-soft: #10345c;
   --si: #9085e9; --gold: #c98500; --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --page-edge: rgba(255, 255, 255, 0.06);
 }
 
 * { box-sizing: border-box; }
@@ -80,8 +85,12 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button { font: inherit; color: inherit; cursor: pointer; }
 
-.wrap { max-width: 1380px; margin: 0 auto; padding: 0 24px; }
-body.wide .wrap { max-width: none; }
+.wrap { max-width: var(--feedwidth, 1380px); margin: 0 auto; padding: 0 24px; }
+/* Feed width presets (Display popover; replaces the old Wide toggle) */
+body[data-feedwidth="narrow"] { --feedwidth: 900px; }
+body[data-feedwidth="default"] { --feedwidth: 1380px; }
+body[data-feedwidth="wide"] { --feedwidth: 1760px; }
+body[data-feedwidth="max"] { --feedwidth: none; }
 
 /* ---------------------------------------------------------------- header */
 header.site {
@@ -144,6 +153,41 @@ header.site {
   width: 100%; accent-color: var(--accent); margin-top: 4px; display: block;
 }
 .popover-reset { width: 100%; }
+.popover-label { font-size: 12.5px; color: var(--ink-2); margin: 2px 0 6px; }
+.popover-seg { display: flex; width: 100%; margin-bottom: 12px; }
+.popover-seg button { flex: 1; text-align: center; }
+
+/* favourites popover */
+.favorites-popover { width: 300px; max-height: 70vh; flex-direction: column; }
+.favorites-popover.show { display: flex; }
+.popover-head { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+.popover-sub { font-weight: 400; color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+.fav-list { overflow-y: auto; max-height: 320px; margin: 8px 0 10px; scrollbar-width: thin; }
+/* NB: .fav-row and .fav-persist-row are <label> elements inside .popover, so
+   the generic ".popover label { display: block }" rule above (meant for the
+   Display popover's slider labels) outranks a plain ".fav-row" class alone
+   on specificity — match its shape ("popover label.foo") to reliably win. */
+.popover label.fav-row {
+  display: flex; align-items: center; gap: 8px; padding: 5px 2px;
+  border-bottom: 1px solid var(--grid); font-size: 13px; margin-bottom: 0;
+}
+.fav-row:last-child { border-bottom: 0; }
+.fav-row input[type="checkbox"] { accent-color: var(--accent); flex: 0 0 auto; }
+.fav-row .fav-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink-2); text-align: left; float: none; font-weight: 400;
+}
+.fav-row.checked .fav-name { color: var(--ink); font-weight: 600; }
+.fav-row .fav-rank {
+  flex: 0 0 auto; min-width: 20px; text-align: center; font-variant-numeric: tabular-nums;
+  color: var(--accent); font-weight: 700; font-size: 12.5px; float: none;
+}
+.popover label.fav-persist-row {
+  display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2);
+  padding: 8px 0; border-top: 1px solid var(--grid); margin-bottom: 8px;
+}
+.fav-persist-row input { accent-color: var(--accent); }
+.fav-empty { color: var(--muted); font-size: 12.5px; padding: 10px 2px; }
 
 .cov-note {
   display: none; color: var(--muted); font-size: 12px; padding: 6px 0 0; line-height: 1.4;
@@ -174,12 +218,30 @@ main { padding: 18px 0 80px; }
   gap: 14px;
   align-items: start;
 }
-.jcard {
+.jcard, .tcard {
   background: var(--surface); border: 1px solid var(--border);
-  border-top: 4px solid var(--jc, var(--accent));
-  border-radius: 12px; overflow: hidden;
+  border-radius: 12px; overflow: hidden; position: relative;
 }
 .jcard.expanded { grid-column: 1 / -1; }
+
+/* Book-style cards (default): coloured spine on the LEFT edge + a few
+   layered page-edge hairlines along the top, evoking a thick journal issue
+   seen face-on. Pure CSS (gradients only, no images) so it stays performant
+   across dozens of cards. Basic style below reverts to a flat top bar. */
+body[data-cardstyle="basic"] .jcard, body[data-cardstyle="basic"] .tcard {
+  border-top: 4px solid var(--jc, var(--accent));
+}
+body:not([data-cardstyle="basic"]) .jcard,
+body:not([data-cardstyle="basic"]) .tcard {
+  border-left: 10px solid var(--jc, var(--accent));
+  border-top: 1px solid var(--border);
+}
+body:not([data-cardstyle="basic"]) .jcard::before,
+body:not([data-cardstyle="basic"]) .tcard::before {
+  content: ""; position: absolute; top: 0; left: 10px; right: 0; height: 7px;
+  background: repeating-linear-gradient(to bottom, var(--page-edge) 0 1px, transparent 1px 2px);
+  pointer-events: none;
+}
 .jhead {
   display: flex; align-items: center; gap: 12px; padding: 11px 15px 9px;
   user-select: none;
@@ -221,6 +283,18 @@ main { padding: 18px 0 80px; }
   vertical-align: 2px; letter-spacing: 0.03em;
 }
 
+/* volume separator — marks a volume boundary in a single-journal paper list
+   (journal cards, the "View all" popout); not used in the mixed-journal
+   topic view. */
+.volsep { display: flex; align-items: center; gap: 10px; margin: 10px 2px 4px; }
+.volsep::before {
+  content: ""; flex: 1 1 auto; height: 0; border-top: 3px double var(--baseline);
+}
+.volsep-label {
+  flex: 0 0 auto; color: var(--muted); font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
+}
+
 /* special issue group */
 .sigroup {
   border: 1px solid var(--border); border-left: 3px solid var(--si);
@@ -251,17 +325,11 @@ main { padding: 18px 0 80px; }
 }
 .showmore:hover { background: var(--accent-soft); }
 
-/* topic view */
-.tsection { margin-bottom: 26px; }
-.tsection h2 {
-  font-size: 18px; margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px;
-  font-family: var(--serif);
-}
-.tsection h2 .tcount { color: var(--muted); font-size: 13px; font-weight: 400; }
-.tsection .tbody {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 4px 14px;
-}
+/* topic view — each topic renders as a .jcard (book/basic styling applies
+   the same as venue cards), body internally scrollable and capped by the
+   same --card-max-h slider used for journal cards. */
+.tcard { margin-bottom: 16px; }
+.tcard .jname { font-size: 17px; }
 
 /* chips */
 .chip {
@@ -333,6 +401,16 @@ body.serif .modal .abstract { font-family: var(--serif); }
   position: absolute; bottom: 16px; left: 0; right: 0; text-align: center;
   color: var(--muted); font-size: 12.5px; z-index: 65; pointer-events: none;
 }
+/* discovery hint for the side shelves — lower half of the screen, fades in
+   then auto-dismisses after 10s or once the user has rotated enough to see
+   a side shelf (see threeview.js). Never blocks clicks. */
+.side-shelf-hint {
+  position: absolute; top: 62%; left: 0; right: 0; text-align: center;
+  color: var(--ink-2); font-size: 13px; letter-spacing: 0.02em;
+  z-index: 64; pointer-events: none; opacity: 0; transition: opacity 0.6s ease;
+}
+.side-shelf-hint.show { opacity: 0.82; }
+.three-panel .lectern-note { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
 .three-panel {
   position: absolute; top: 66px; right: 20px; bottom: 20px; width: 400px; z-index: 66;
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
@@ -342,8 +420,84 @@ body.serif .modal .abstract { font-family: var(--serif); }
 .three-panel h3 { margin: 0 0 2px; font-size: 18px; font-family: var(--serif); }
 .three-panel .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
 
+/* "Aim to view" (device-orientation look-around) — only ever shown on
+   touch-capable devices (see js/app.js, which adds body.touch-device). */
+#btn-aim { display: none; }
+body.touch-device #btn-aim { display: inline-flex; }
+#btn-aim.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.aim-status {
+  position: absolute; top: 60px; left: 0; right: 0; text-align: center;
+  color: var(--ink-2); font-size: 12.5px; z-index: 67; pointer-events: none;
+  opacity: 0; transition: opacity 0.4s ease;
+}
+.aim-status.show { opacity: 1; }
+/* the 3D canvas must own touch gestures itself (drag-to-look, pinch-to-zoom)
+   rather than letting the browser scroll/zoom the page underneath it */
+#three-canvas, #three-canvas canvas { touch-action: none; }
+
 /* mobile-ish */
 @media (max-width: 900px) {
   .three-panel { width: calc(100vw - 40px); }
   .searchbox { min-width: 160px; }
 }
+
+/* ---------------------------------------------------------------- mobile */
+@media (max-width: 640px) {
+  .wrap { padding: 0 14px; }
+  .site-row { gap: 8px; padding: 8px 0; }
+  .brand { margin-right: 0; }
+  /* segmented navs (mode, view, ranking, window) mustn't run off the edge
+     of a phone screen — wrap onto extra rows instead */
+  .seg { flex-wrap: wrap; }
+  .seg button { flex: 1 1 auto; }
+  .brand .tag { display: none; } /* header is crowded enough on a phone */
+  .spacer { flex-basis: 100%; height: 0; } /* forces search + toggles onto their own row */
+  .searchbox { flex: 1 1 auto; min-width: 0; }
+
+  /* touch targets: keep primary controls close to the ~44px guideline */
+  .iconbtn, .seg button { padding: 11px 13px; min-height: 40px; }
+  .seg.small button { padding: 9px 11px; font-size: 13.5px; }
+  .rankbadge, .viewall { min-height: 32px; }
+
+  .subrow { gap: 8px 10px; }
+  .subrow .label { flex-basis: 100%; height: 0; overflow: hidden; } /* stacked labels waste space on phones */
+
+  /* card grid: always single column, and never wider than the viewport —
+     the card-width slider still works but can't force horizontal scrolling */
+  .jgrid { grid-template-columns: 1fr !important; }
+  .jcard, .tcard { width: 100%; }
+
+  /* feed-width presets: Narrow/Default/Wide/Max all collapse to "fill the
+     screen" here — max-width simply can't exceed the viewport, so "Max"
+     is a no-op on phones exactly as it is on desktop. */
+  .popover-seg { flex-wrap: wrap; }
+
+  /* popovers become a fixed bottom sheet instead of an absolutely-positioned
+     flyout anchored to a header button — a 230-300px flyout can't be
+     reliably anchored on a 360-430px screen without risking overflow. */
+  .popover, .favorites-popover {
+    position: fixed; top: auto; bottom: 10px; left: 10px; right: 10px;
+    width: auto; max-width: none; max-height: 75vh; overflow-y: auto;
+  }
+
+  .modal { padding: 20px 18px; max-height: 88vh; }
+  .modal.journal-modal .modal-sticky-head { padding: 16px 18px 12px; }
+  .modal.journal-modal .modal-scroll { padding: 12px 18px 20px; }
+
+  .three-hud { flex-wrap: wrap; gap: 8px; top: 10px; left: 10px; right: 10px; }
+  .three-hint { font-size: 11.5px; padding: 0 10px; line-height: 1.4; }
+  .side-shelf-hint { font-size: 12px; padding: 0 16px; }
+  .three-panel { left: 10px; right: 10px; width: auto; top: auto; bottom: 10px; height: 46vh; }
+}
+
+/* short viewports (phones in landscape) — the 3D chrome needs its own pass
+   here since width alone (844px on a landscape phone) doesn't trip the
+   640px rule above */
+@media (max-height: 480px) {
+  .three-hud { top: 6px; left: 10px; right: 10px; flex-wrap: wrap; gap: 6px; }
+  .three-hint { bottom: 6px; font-size: 11px; padding: 0 8px; }
+  .side-shelf-hint { top: 68%; font-size: 11.5px; }
+  .three-panel { top: auto; bottom: 6px; right: 10px; left: auto; width: min(340px, 46vw); height: 82vh; padding: 10px 12px; }
+  .aim-status { top: 44px; }
+}
+

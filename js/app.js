@@ -9,7 +9,8 @@ const S = {
   yearCache: new Map(),  // year -> rows
   mode: "general",
   view: "venue",         // venue | topic
-  ranking: "db",         // db | leiter (general mode only)
+  ranking: "db",         // db | leiter (general mode only; irrelevant when rankMode is "favorites")
+  rankMode: "normal",    // normal | favorites — "Favourites" is a ranking option layered on top of db/leiter/field
   win: "365",            // '30'|'90'|'365'|'1826'|'year'
   year: 2020,
   query: "",
@@ -17,6 +18,60 @@ const S = {
   mini: null,            // MiniSearch instance over rows
   three: null,           // threeview module (lazy)
 };
+
+// -------------------------------------------------------------- prefs (§8) --
+// ALL persisted display prefs live under one localStorage key, read once at
+// boot and written on every change. Favourites (+ their opt-in flag) are only
+// ever included in the stored object when the user has ticked "Save
+// favourites on this device" — unticking drops them from the very next write.
+// No cookies: nothing here is ever sent to a server.
+const PREF_KEY = "philosopheed:prefs";
+const DEFAULT_PREFS = {
+  serif: false,
+  feedWidth: "default",   // narrow | default | wide | max
+  zoom: 100,
+  cardW: 420,
+  cardH: 430,
+  cardStyle: "book",       // book | basic
+};
+const LEGACY_KEYS = { serif: "phd-serif", wide: "phd-wide", zoom: "phd-zoom", cardw: "phd-cardw", cardh: "phd-cardh" };
+
+function migrateLegacyPrefs() {
+  const hasLegacy = Object.values(LEGACY_KEYS).some((k) => localStorage.getItem(k) !== null);
+  if (!hasLegacy) return null;
+  const p = { ...DEFAULT_PREFS };
+  if (localStorage.getItem(LEGACY_KEYS.serif) !== null) p.serif = localStorage.getItem(LEGACY_KEYS.serif) === "1";
+  if (localStorage.getItem(LEGACY_KEYS.wide) !== null) p.feedWidth = localStorage.getItem(LEGACY_KEYS.wide) === "1" ? "max" : "default";
+  if (localStorage.getItem(LEGACY_KEYS.zoom) !== null) p.zoom = Number(localStorage.getItem(LEGACY_KEYS.zoom)) || 100;
+  if (localStorage.getItem(LEGACY_KEYS.cardw) !== null) p.cardW = Number(localStorage.getItem(LEGACY_KEYS.cardw)) || 420;
+  if (localStorage.getItem(LEGACY_KEYS.cardh) !== null) p.cardH = Number(localStorage.getItem(LEGACY_KEYS.cardh)) || 430;
+  Object.values(LEGACY_KEYS).forEach((k) => localStorage.removeItem(k));
+  return p;
+}
+
+function loadPrefs() {
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem(PREF_KEY) || "null"); } catch { stored = null; }
+  if (!stored) stored = migrateLegacyPrefs();
+  const p = { ...DEFAULT_PREFS, ...(stored || {}) };
+  p.favoritesEnabled = !!(stored && stored.favoritesEnabled);
+  p.favorites = (stored && p.favoritesEnabled && Array.isArray(stored.favorites)) ? stored.favorites.slice() : [];
+  return p;
+}
+
+const Prefs = loadPrefs();
+
+function savePrefs() {
+  const toStore = {
+    serif: Prefs.serif, feedWidth: Prefs.feedWidth, zoom: Prefs.zoom,
+    cardW: Prefs.cardW, cardH: Prefs.cardH, cardStyle: Prefs.cardStyle,
+  };
+  if (Prefs.favoritesEnabled) {
+    toStore.favoritesEnabled = true;
+    toStore.favorites = Prefs.favorites;
+  }
+  localStorage.setItem(PREF_KEY, JSON.stringify(toStore));
+}
 
 const $ = (sel) => document.querySelector(sel);
 const el = (tag, cls, html) => {
@@ -159,12 +214,34 @@ const journalById = (id) => S.registry.journals.find((j) => j.id === id);
 const modeJournals = () => S.registry.journals.filter((j) => S.mode === "general"
   ? j.modes.includes("general") : j.modes.includes(S.mode));
 
-function rankOf(j) {
+function defaultRankOf(j) {
   if (S.mode !== "general") return j.mode_rank?.[S.mode] ?? Infinity;
   const r = S.ranking === "db" ? j.rankings?.db_pca : j.rankings?.leiter;
   return r ?? Infinity;
 }
-const rankedJournals = () => modeJournals().sort((a, b) => rankOf(a) - rankOf(b));
+
+// Favourites ranking: favourites first (in the order they were favourited),
+// then the remaining journals in the mode's default ranking. One global
+// favourites list is shared across all four modes — journals absent from the
+// current mode simply don't render, but keep their place in the list.
+let favMap = new Map();
+function computeFavMap() {
+  const js = modeJournals().slice().sort((a, b) => defaultRankOf(a) - defaultRankOf(b));
+  const favSet = new Set(Prefs.favorites);
+  const favInMode = Prefs.favorites.filter((id) => js.some((j) => j.id === id));
+  const rest = js.filter((j) => !favSet.has(j.id));
+  const map = new Map();
+  [...favInMode, ...rest.map((j) => j.id)].forEach((id, i) => map.set(id, i + 1));
+  return map;
+}
+function rankOf(j) {
+  if (S.rankMode === "favorites") return favMap.get(j.id) ?? Infinity;
+  return defaultRankOf(j);
+}
+function rankedJournals() {
+  if (S.rankMode === "favorites") favMap = computeFavMap();
+  return modeJournals().sort((a, b) => rankOf(a) - rankOf(b));
+}
 
 // ---------------------------------------------------------------- widgets --
 function sparkline(jid) {
@@ -218,6 +295,49 @@ function paperRow(r, showJournal) {
   return b;
 }
 
+// -------------------------------------------------------- volume boundaries --
+// Consecutive papers in a single-journal list that cross a volume boundary
+// get a visual separator (double rule + small label). Not used in the
+// mixed-journal topic view. Label format is inferred per journal from the
+// window's own data: if any year in the list carries 2+ distinct volumes,
+// numbering is per-year (label "'26 · Vol. 3"); otherwise it's cumulative
+// over the journal's history (label "Vol. 135"). Rows with no volume data
+// never trigger a separator.
+export function inferVolumeFormat(papers) {
+  const yearVols = new Map();
+  for (const r of papers) {
+    if (!r.volume) continue;
+    const y = r.published.slice(0, 4);
+    if (!yearVols.has(y)) yearVols.set(y, new Set());
+    yearVols.get(y).add(r.volume);
+  }
+  for (const set of yearVols.values()) if (set.size >= 2) return "year-vol";
+  return "cumulative";
+}
+export function volumeLabelText(row, fmt) {
+  return fmt === "year-vol" ? `’${row.published.slice(2, 4)} · Vol. ${row.volume}` : `Vol. ${row.volume}`;
+}
+function volumeSeparatorEl(label) {
+  return el("div", "volsep", `<span class="volsep-label">${esc(label)}</span>`);
+}
+// Appends papers[from, to) to container, inserting a volume separator
+// wherever the volume changes from the *true* previous item in the full
+// list (so separators stay correct across "show more" continuations).
+function appendPapers(container, allPapers, showJournal, from = 0, to = allPapers.length) {
+  if (!allPapers.length) return;
+  const fmt = inferVolumeFormat(allPapers);
+  for (let i = from; i < to; i++) {
+    const r = allPapers[i];
+    if (i > 0) {
+      const prev = allPapers[i - 1];
+      if (r.volume && prev.volume && r.volume !== prev.volume) {
+        container.append(volumeSeparatorEl(volumeLabelText(r, fmt)));
+      }
+    }
+    container.append(paperRow(r, showJournal));
+  }
+}
+
 // ------------------------------------------------------------ venue view --
 const PREVIEW = 200;   // rows per scrollable card (6 visible, rest on scroll)
 
@@ -246,7 +366,7 @@ function renderVenue(rows) {
       openJournalModal(j, papers);
     });
     const body = el("div", "jbody");
-    papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, false)));
+    appendPapers(body, papers, false, 0, Math.min(PREVIEW, papers.length));
     if (!papers.length) body.append(el("div", "status", "No papers in this window."));
     card.append(head, body);
     if (papers.length > PREVIEW) {
@@ -258,7 +378,7 @@ function renderVenue(rows) {
           fillJournalBody(body, papers);
           more.textContent = "Collapse";
         } else {
-          papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, false)));
+          appendPapers(body, papers, false, 0, Math.min(PREVIEW, papers.length));
           more.textContent = `All ${papers.length} papers`;
           card.scrollIntoView({ block: "nearest" });
         }
@@ -291,15 +411,15 @@ function fillJournalBody(body, papers, limit = 12) {
     body.append(g);
   }
   if (limit == null) {
-    rest.forEach((r) => body.append(paperRow(r, false)));
+    appendPapers(body, rest, false);
     return;
   }
-  rest.slice(0, limit).forEach((r) => body.append(paperRow(r, false)));
+  appendPapers(body, rest, false, 0, Math.min(limit, rest.length));
   if (rest.length > limit) {
     const more = el("button", "showmore", `Show all ${rest.length} papers`);
     more.addEventListener("click", () => {
       more.remove();
-      rest.slice(limit).forEach((r) => body.append(paperRow(r, false)));
+      appendPapers(body, rest, false, limit, rest.length);
     });
     body.append(more);
   }
@@ -325,6 +445,10 @@ function openJournalModal(j, papers) {
 function closeJournalModal() { $("#journal-overlay").classList.remove("show"); }
 
 // ------------------------------------------------------------ topic view --
+// Topic cards mirror the venue cards' book/basic styling and scroll cap
+// (respects the card-height slider), but are mixed-journal — so they never
+// get volume separators, and stay full-width rather than joining the card
+// grid (topic bodies routinely run to hundreds of rows across many venues).
 function renderTopic(rows) {
   const byT = new Map();
   rows.forEach((r) => {
@@ -338,21 +462,33 @@ function renderTopic(rows) {
   const root = el("div");
   for (const t of order) {
     const papers = byT.get(t).sort((a, b) => b.published.localeCompare(a.published));
-    const sec = el("section", "tsection");
-    sec.innerHTML = `<h2>${esc(TOPIC_LABELS[t])} <span class="tcount">${papers.length}</span></h2>`;
-    const box = el("div", "tbody");
-    const LIMIT = 15;
-    papers.slice(0, LIMIT).forEach((r) => box.append(paperRow(r, true)));
-    if (papers.length > LIMIT) {
-      const more = el("button", "showmore", `Show all ${papers.length}`);
+    const card = el("div", "jcard tcard");
+    const head = el("div", "jhead");
+    head.innerHTML = `<div><div class="jname">${esc(TOPIC_LABELS[t])}</div></div>
+      <div class="jright"><span class="jcount"><b>${papers.length}</b> in window</span></div>`;
+    const body = el("div", "jbody");
+    papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, true)));
+    if (!papers.length) body.append(el("div", "status", "No papers in this window."));
+    card.append(head, body);
+    if (papers.length > PREVIEW) {
+      const more = el("button", "showmore", `All ${papers.length} papers`);
       more.addEventListener("click", () => {
-        more.remove();
-        papers.slice(LIMIT).forEach((r) => box.append(paperRow(r, true)));
+        const expanded = card.classList.toggle("expanded");
+        body.innerHTML = "";
+        if (expanded) {
+          papers.forEach((r) => body.append(paperRow(r, true)));
+          more.textContent = "Collapse";
+        } else {
+          papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, true)));
+          more.textContent = `All ${papers.length} papers`;
+          card.scrollIntoView({ block: "nearest" });
+        }
       });
-      box.append(more);
+      body.after(more);
+      more.style.margin = "0 15px 12px";
+      more.style.width = "calc(100% - 30px)";
     }
-    sec.append(box);
-    root.append(sec);
+    root.append(card);
   }
   return root;
 }
@@ -411,7 +547,7 @@ async function openPaper(r) {
       absEl.innerHTML = sanitizeInline(full.abstract);
       absEl.classList.remove("none");
     } else {
-      absEl.textContent = "No abstract available for this paper — follow the source link.";
+      absEl.textContent = "Abstract not available here — follow the DOI link above.";
     }
   } catch {
     absEl.textContent = "No abstract available for this paper — follow the source link.";
@@ -487,21 +623,38 @@ function segButtons(container, items, onPick) {
 }
 
 function buildRankSeg(container) {
+  const applyRanking = (id) => {
+    if (id === "favorites") S.rankMode = "favorites";
+    else { S.rankMode = "normal"; if (id !== "field") S.ranking = id; }
+    buildRankSeg($("#rank-seg"));
+    buildRankSeg($("#rank-seg-3d"));
+    refresh();
+    S.three?.setRanking?.();
+  };
   if (S.mode !== "general") {
-    segButtons(container, [{ id: "field", label: "Field ranking", on: true }], () => {});
+    segButtons(container, [
+      { id: "field", label: "Field ranking", on: S.rankMode !== "favorites" },
+      { id: "favorites", label: "Favourites", on: S.rankMode === "favorites" },
+    ], applyRanking);
     return;
   }
   segButtons(container, [
-    { id: "db", label: "de Bruin 2023", on: S.ranking === "db" },
-    { id: "leiter", label: "Leiter 2022", on: S.ranking === "leiter" },
-  ], (id) => { S.ranking = id; refresh(); S.three?.setRanking?.(); });
+    { id: "db", label: "de Bruin 2023", on: S.rankMode !== "favorites" && S.ranking === "db" },
+    { id: "leiter", label: "Leiter 2022", on: S.rankMode !== "favorites" && S.ranking === "leiter" },
+    { id: "favorites", label: "Favourites", on: S.rankMode === "favorites" },
+  ], applyRanking);
 }
 
 function initChrome() {
+  // "Aim to view" (device-orientation look-around, in threeview.js) is only
+  // useful — and its permission prompt only makes sense — on touch devices.
+  if ("ontouchstart" in window || navigator.maxTouchPoints > 0) {
+    document.body.classList.add("touch-device");
+  }
   const modes = S.registry.meta.modes;
   segButtons($("#mode-seg"),
     Object.keys(modes).map((id) => ({ id, label: modes[id].label, on: id === S.mode })),
-    (id) => { S.mode = id; buildRankSeg($("#rank-seg")); buildRankSeg($("#rank-seg-3d")); refresh(); S.three?.setMode?.(); });
+    (id) => { S.mode = id; buildRankSeg($("#rank-seg")); buildRankSeg($("#rank-seg-3d")); refresh(); S.three?.setMode?.(); renderFavoritesList(); });
   buildRankSeg($("#rank-seg"));
 
   $("#view-seg").querySelectorAll("button").forEach((b) =>
@@ -584,81 +737,168 @@ function initChrome() {
       $("#about-overlay").classList.remove("show");
       closeJournalModal();
       closeDisplayPopover();
+      closeFavoritesPopover();
     }
   });
 
   // ---------------------------------------------------------- display prefs --
+  // All of serif / feed width / zoom / card width / card height / card style
+  // (and, opt-in only, favourites + its flag) live in the single Prefs
+  // object, backed by one localStorage key (§8 — see loadPrefs/savePrefs).
   const body = document.body;
   const root = document.documentElement;
-  const getPref = (key, fallback) => {
-    const v = localStorage.getItem(key);
-    return v === null ? fallback : v;
-  };
 
   // serif toggle (default off — see CSS: body.serif restores the academic
   // serif on paper titles / modal titles / abstracts only)
   const serifBtn = $("#btn-serif");
-  function setSerif(on) {
+  function setSerif(on, persist = true) {
+    Prefs.serif = on;
     body.classList.toggle("serif", on);
     serifBtn.classList.toggle("on", on);
-    localStorage.setItem("phd-serif", on ? "1" : "0");
+    if (persist) savePrefs();
   }
   serifBtn.addEventListener("click", () => setSerif(!body.classList.contains("serif")));
-  setSerif(getPref("phd-serif", "0") === "1");
+  setSerif(Prefs.serif, false);
 
-  // wide toggle (full-viewport content width)
-  const wideBtn = $("#btn-wide");
-  function setWide(on) {
-    body.classList.toggle("wide", on);
-    wideBtn.classList.toggle("on", on);
-    localStorage.setItem("phd-wide", on ? "1" : "0");
+  // feed width (Display popover; replaces the old standalone Wide toggle —
+  // "Max" reproduces its full-viewport behaviour)
+  function setFeedWidth(id, persist = true) {
+    Prefs.feedWidth = id;
+    body.dataset.feedwidth = id;
+    $("#feedwidth-seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.fw === id));
+    if (persist) savePrefs();
   }
-  wideBtn.addEventListener("click", () => setWide(!body.classList.contains("wide")));
-  setWide(getPref("phd-wide", "0") === "1");
+  $("#feedwidth-seg").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => setFeedWidth(b.dataset.fw)));
+  setFeedWidth(Prefs.feedWidth, false);
+
+  // card style: Book (default — coloured spine + page-edge hairlines) vs
+  // Basic (flat top bar, the old look)
+  function setCardStyle(id, persist = true) {
+    Prefs.cardStyle = id;
+    body.dataset.cardstyle = id;
+    $("#cardstyle-seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.cs === id));
+    if (persist) savePrefs();
+  }
+  $("#cardstyle-seg").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => setCardStyle(b.dataset.cs)));
+  setCardStyle(Prefs.cardStyle, false);
 
   // Display popover: zoom + card width + card height sliders
   const zoomSlider = $("#zoom-slider"), zoomVal = $("#zoom-val");
   const cardwSlider = $("#cardw-slider"), cardwVal = $("#cardw-val");
   const cardhSlider = $("#cardh-slider"), cardhVal = $("#cardh-val");
 
-  function setZoom(pct) {
+  function setZoom(pct, persist = true) {
+    Prefs.zoom = pct;
     root.style.setProperty("--zoom", pct / 100);
     zoomSlider.value = pct;
     zoomVal.textContent = `${pct}%`;
-    localStorage.setItem("phd-zoom", pct);
+    if (persist) savePrefs();
   }
-  function setCardW(px) {
+  function setCardW(px, persist = true) {
+    Prefs.cardW = px;
     root.style.setProperty("--card-min-w", `${px}px`);
     cardwSlider.value = px;
     cardwVal.textContent = `${px}px`;
-    localStorage.setItem("phd-cardw", px);
+    if (persist) savePrefs();
   }
-  function setCardH(px) {
+  function setCardH(px, persist = true) {
+    Prefs.cardH = px;
     root.style.setProperty("--card-max-h", `${px}px`);
     cardhSlider.value = px;
     cardhVal.textContent = `${px}px`;
-    localStorage.setItem("phd-cardh", px);
+    if (persist) savePrefs();
   }
-  setZoom(Number(getPref("phd-zoom", 100)));
-  setCardW(Number(getPref("phd-cardw", 420)));
-  setCardH(Number(getPref("phd-cardh", 430)));
+  setZoom(Prefs.zoom, false);
+  setCardW(Prefs.cardW, false);
+  setCardH(Prefs.cardH, false);
 
   zoomSlider.addEventListener("input", () => setZoom(Number(zoomSlider.value)));
   cardwSlider.addEventListener("input", () => setCardW(Number(cardwSlider.value)));
   cardhSlider.addEventListener("input", () => setCardH(Number(cardhSlider.value)));
-  $("#display-reset").addEventListener("click", () => { setZoom(100); setCardW(420); setCardH(430); });
+  $("#display-reset").addEventListener("click", () => {
+    setZoom(100); setCardW(420); setCardH(430); setFeedWidth("default"); setCardStyle("book");
+  });
 
   const displayBtn = $("#btn-display");
   const displayPop = $("#display-popover");
   function closeDisplayPopover() { displayPop.classList.remove("show"); }
   displayBtn.addEventListener("click", (e) => {
     e.stopPropagation();
+    closeFavoritesPopover();
     displayPop.classList.toggle("show");
   });
   document.addEventListener("click", (e) => {
     if (displayPop.classList.contains("show") && !displayPop.contains(e.target) && e.target !== displayBtn) {
       closeDisplayPopover();
     }
+  });
+
+  // ------------------------------------------------------------ favourites --
+  // ONE global ordered list of journal ids (click order = rank), shared
+  // across all four modes. Persistence is opt-in (see savePrefs): unticking
+  // "Save favourites on this device" drops it from localStorage immediately.
+  const favBtn = $("#btn-favorites");
+  const favPop = $("#favorites-popover");
+  const favList = $("#fav-list");
+  const favPersist = $("#fav-persist");
+  favPersist.checked = Prefs.favoritesEnabled;
+
+  function closeFavoritesPopover() { favPop.classList.remove("show"); }
+
+  function toggleFavorite(jid, on) {
+    const i = Prefs.favorites.indexOf(jid);
+    if (on && i === -1) Prefs.favorites.push(jid);
+    else if (!on && i !== -1) Prefs.favorites.splice(i, 1);
+    if (Prefs.favoritesEnabled) savePrefs();
+    renderFavoritesList();
+    if (S.rankMode === "favorites") { refresh(); S.three?.setRanking?.(); }
+  }
+
+  function renderFavoritesList() {
+    favList.innerHTML = "";
+    const js = modeJournals().slice().sort((a, b) => defaultRankOf(a) - defaultRankOf(b));
+    if (!js.length) { favList.append(el("div", "fav-empty", "No journals in this mode.")); return; }
+    js.forEach((j) => {
+      const idx = Prefs.favorites.indexOf(j.id);
+      const checked = idx !== -1;
+      const row = el("label", `fav-row${checked ? " checked" : ""}`);
+      row.innerHTML = `<input type="checkbox" ${checked ? "checked" : ""}>
+        <span class="fav-name">${esc(j.name)}</span>
+        <span class="fav-rank"></span>`;
+      // circled-number glyphs only exist up to 20; fall back to a plain
+      // numeral in a circle-styled span beyond that (favourites lists are
+      // short in practice, but don't silently drop the count if not).
+      const rankSpan = row.querySelector(".fav-rank");
+      rankSpan.textContent = checked ? circledNumber(idx + 1) : "";
+      row.querySelector("input").addEventListener("change", (e) => toggleFavorite(j.id, e.target.checked));
+      favList.append(row);
+    });
+  }
+  const CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳";
+  function circledNumber(n) { return n >= 1 && n <= 20 ? CIRCLED[n - 1] : `(${n})`; }
+
+  favBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeDisplayPopover();
+    renderFavoritesList();
+    favPop.classList.toggle("show");
+  });
+  document.addEventListener("click", (e) => {
+    if (favPop.classList.contains("show") && !favPop.contains(e.target) && e.target !== favBtn) {
+      closeFavoritesPopover();
+    }
+  });
+  favPersist.addEventListener("change", () => {
+    Prefs.favoritesEnabled = favPersist.checked;
+    savePrefs(); // ticking persists now; unticking drops favourites from storage immediately
+  });
+  $("#fav-clear").addEventListener("click", () => {
+    Prefs.favorites = [];
+    if (Prefs.favoritesEnabled) savePrefs();
+    renderFavoritesList();
+    if (S.rankMode === "favorites") { refresh(); S.three?.setRanking?.(); }
   });
 
   $("#btn-3d").addEventListener("click", async () => {
@@ -674,8 +914,12 @@ function initChrome() {
       state: S, rankedJournals, rankOf, journalById,
       openPaper, esc, TOPIC_LABELS, textOn,
       sanitizeInline, stripInlineToText,
+      inferVolumeFormat, volumeLabelText,
+      getFavorites: () => Prefs.favorites.slice(),
     });
   });
+  $("#btn-3d-open-favs").addEventListener("click", () => S.three?.openFavorites?.());
+  $("#btn-aim").addEventListener("click", () => S.three?.toggleAim?.());
   $("#btn-exit-3d").addEventListener("click", () => {
     $("#three-wrap").classList.remove("show");
     S.three?.exit?.();
