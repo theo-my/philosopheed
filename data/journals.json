@@ -157,7 +157,7 @@
     "0026-4423",
     "1460-2113"
    ],
-   "rss": null,
+   "rss": "https://academic.oup.com/rss/site_5489/3350.xml",
    "modes": [
     "general"
    ],
@@ -299,7 +299,7 @@
     "0031-8094",
     "1467-9213"
    ],
-   "rss": null,
+   "rss": "https://academic.oup.com/rss/site_5498/3359.xml",
    "modes": [
     "general"
    ],
@@ -465,7 +465,7 @@
     "0003-2638",
     "1467-8284"
    ],
-   "rss": null,
+   "rss": "https://academic.oup.com/rss/site_5428/3289.xml",
    "modes": [
     "general"
    ],
@@ -732,7 +732,7 @@
     "0066-7374",
     "1467-9264"
    ],
-   "rss": null,
+   "rss": "https://academic.oup.com/rss/site_5500/3361.xml",
    "modes": [
     "general"
    ],
@@ -800,7 +800,7 @@
     "0026-9662",
     "2153-3601"
    ],
-   "rss": null,
+   "rss": "https://academic.oup.com/rss/site_5491/3352.xml",
    "modes": [
     "general"
    ],
@@ -890,7 +890,7 @@
     "0963-8016",
     "1467-9760"
    ],
-   "rss": null,
+   "rss": "https://onlinelibrary.wiley.com/feed/14679760/most-recent",
    "modes": [
     "ethics"
    ],
@@ -1368,7 +1368,7 @@
     "1063-6145",
     "1530-9274"
    ],
-   "rss": null,
+   "rss": "https://direct.mit.edu/rss/site_1000061/1000033.xml",
    "modes": [
     "philsci"
    ],

@@ -194,7 +194,8 @@ function spreadTexture() {
     const y = 170 + (i % 5) * 200;
     g.fillStyle = "#1d1c19";
     g.font = 'bold 34px "Century Schoolbook", "CMU Serif", Georgia, serif';
-    wrapText(g, p.title, x, y, colW, 42, 2);
+    // canvas text can't render HTML — strip any inline markup to plain text
+    wrapText(g, ctx.stripInlineToText(p.title), x, y, colW, 42, 2);
     g.fillStyle = "#6d6a61";
     g.font = '28px "Century Schoolbook", "CMU Serif", Georgia, serif';
     const byline = `${(p.authors || []).join(", ")} · ${p.published}`;
@@ -294,7 +295,7 @@ function renderPanel() {
   papers.slice(page * PER_SPREAD, page * PER_SPREAD + PER_SPREAD).forEach((r) => {
     const b = document.createElement("button");
     b.className = "paper";
-    b.innerHTML = `<div class="ptitle">${ctx.esc(r.title)}</div>
+    b.innerHTML = `<div class="ptitle">${ctx.sanitizeInline(r.title)}</div>
       <div class="pmeta">${ctx.esc((r.authors || []).join(", "))} · ${r.published}</div>`;
     b.addEventListener("click", () => ctx.openPaper(r));
     panel.append(b);

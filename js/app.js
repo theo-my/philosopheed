@@ -28,6 +28,58 @@ const el = (tag, cls, html) => {
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+// --------------------------------------------------------- inline markup --
+// Paper titles/abstracts come from CrossRef/RSS and are UNTRUSTED: publishers
+// sometimes embed inline markup (e.g. Ergo: "<i>Daodejing</i>"), and some
+// records carry the same markup HTML-entity-escaped ("&lt;i&gt;...&lt;/i&gt;").
+// sanitizeInline() decodes entities, keeps ONLY a small whitelist of
+// attribute-free inline tags as real markup, and escapes everything else back
+// to literal display text — including unrelated escaped angle-bracket
+// notation some philosophy abstracts use for propositions (e.g. an abstract
+// containing "&lt;Snow is white&gt;"), which is not a tag and must render as
+// literal "<Snow is white>", not be swallowed or misinterpreted.
+const INLINE_TAG_RE = /^<\/?(em|i|b|strong|sub|sup)>/i;
+function decodeEntities(s) {
+  return String(s ?? "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+export function sanitizeInline(raw) {
+  const s = decodeEntities(raw);
+  let out = "", i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === "<") {
+      const m = s.slice(i).match(INLINE_TAG_RE);
+      if (m) { out += m[0].toLowerCase(); i += m[0].length; continue; }
+      out += "&lt;"; i++; continue;
+    }
+    if (ch === ">") { out += "&gt;"; i++; continue; }
+    if (ch === "&") { out += "&amp;"; i++; continue; }
+    if (ch === '"') { out += "&quot;"; i++; continue; }
+    if (ch === "'") { out += "&#39;"; i++; continue; }
+    out += ch; i++;
+  }
+  return out;
+}
+// Plain-text form (all whitelisted tags removed, non-tag angle brackets kept
+// literally) — used for search indexing and for canvas text in the 3D view,
+// where HTML can't be rendered at all.
+export function stripInlineToText(raw) {
+  const s = decodeEntities(raw);
+  let out = "", i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === "<") {
+      const m = s.slice(i).match(INLINE_TAG_RE);
+      if (m) { i += m[0].length; continue; }
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
 const TOPIC_LABELS = {
   "blame-resp": "Blame & moral responsibility",
   ethics: "Ethics & moral philosophy", political: "Political philosophy",
@@ -63,11 +115,31 @@ async function loadYear(y) {
   return S.yearCache.get(y);
 }
 
+const ARCHIVE_START_YEAR = 2000; // deep-tier journals are backfilled to here (data/years/2000.json…)
+
+// Fetches (on-demand, cached in S.yearCache) and stitches a set of year files,
+// showing the same "Loading N archive years…" status the 5-yr window already
+// uses. Shared by the 5-yr and "Since 2000" windows.
+async function stitchYears(years, cut) {
+  setStatus(`Loading ${years.length} archive year${years.length === 1 ? "" : "s"}…`);
+  const all = await Promise.all(years.map(loadYear));
+  let rows = all.flat();
+  if (cut) rows = rows.filter((r) => r.published >= cut);
+  return rows.sort((a, b) => b.published.localeCompare(a.published));
+}
+
 async function rowsForWindow() {
   const today = new Date();
   const iso = (d) => d.toISOString().slice(0, 10);
   if (S.win === "year") {
     return loadYear(S.year);
+  }
+  if (S.win === "all") {
+    // full archive: only deep-tier journals are backfilled this far — see
+    // the "coverage note" shown above the window control for this case.
+    const years = [];
+    for (let y = ARCHIVE_START_YEAR; y <= today.getFullYear(); y++) years.push(y);
+    return stitchYears(years);
   }
   const days = Number(S.win);
   if (days <= 365) {
@@ -79,11 +151,7 @@ async function rowsForWindow() {
   const y0 = Number(cut.slice(0, 4));
   const years = [];
   for (let y = y0; y <= today.getFullYear(); y++) years.push(y);
-  setStatus(`Loading ${years.length} archive years…`);
-  const all = await Promise.all(years.map(loadYear));
-  return all.flat()
-    .filter((r) => r.published >= cut)
-    .sort((a, b) => b.published.localeCompare(a.published));
+  return stitchYears(years, cut);
 }
 
 // --------------------------------------------------------------- journals --
@@ -144,7 +212,7 @@ function paperRow(r, showJournal) {
   const date = r.published;
   const b = el("button", "paper");
   const si = r.si ? `<span class="sichip" title="${esc(r.si)}">SI</span>` : "";
-  b.innerHTML = `<div class="ptitle">${si}${esc(r.title)}</div>
+  b.innerHTML = `<div class="ptitle">${si}${sanitizeInline(r.title)}</div>
     <div class="pmeta">${esc(authors) || "<i>—</i>"} · ${jn}${date}</div>`;
   b.addEventListener("click", () => openPaper(r));
   return b;
@@ -169,8 +237,14 @@ function renderVenue(rows) {
     head.innerHTML = `${rankBadge(j)}
       <div><div class="jname">${esc(j.name)} ${ceased}</div>
       <div class="jmeta">${esc(j.publisher)}</div></div>
-      <div class="jright"><span class="jcount"><b>${papers.length}</b> in window</span>
+      <div class="jright">
+      <button class="viewall" type="button" title="View the full list for this journal">View all</button>
+      <span class="jcount"><b>${papers.length}</b> in window</span>
       ${sparkline(j.id)}</div>`;
+    head.querySelector(".viewall").addEventListener("click", (e) => {
+      e.stopPropagation();
+      openJournalModal(j, papers);
+    });
     const body = el("div", "jbody");
     papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, false)));
     if (!papers.length) body.append(el("div", "status", "No papers in this window."));
@@ -198,7 +272,10 @@ function renderVenue(rows) {
   return root;
 }
 
-function fillJournalBody(body, papers) {
+// limit: number of non-special-issue rows to show before a "Show all" button,
+// or null to render the complete list at once (used by the journal popout,
+// which already scrolls internally — see .modal.journal-modal .modal-scroll).
+function fillJournalBody(body, papers, limit = 12) {
   if (!papers.length) {
     body.append(el("div", "status", "No papers in this window."));
     return;
@@ -213,17 +290,39 @@ function fillJournalBody(body, papers) {
     members.forEach((r) => g.append(paperRow(r, false)));
     body.append(g);
   }
-  const LIMIT = 12;
-  rest.slice(0, LIMIT).forEach((r) => body.append(paperRow(r, false)));
-  if (rest.length > LIMIT) {
+  if (limit == null) {
+    rest.forEach((r) => body.append(paperRow(r, false)));
+    return;
+  }
+  rest.slice(0, limit).forEach((r) => body.append(paperRow(r, false)));
+  if (rest.length > limit) {
     const more = el("button", "showmore", `Show all ${rest.length} papers`);
     more.addEventListener("click", () => {
       more.remove();
-      rest.slice(LIMIT).forEach((r) => body.append(paperRow(r, false)));
+      rest.slice(limit).forEach((r) => body.append(paperRow(r, false)));
     });
     body.append(more);
   }
 }
+
+// ------------------------------------------------------------ journal popout --
+function openJournalModal(j, papers) {
+  const modal = $("#journal-modal");
+  const n = papers.length;
+  modal.innerHTML = `
+    <div class="modal-sticky-head">
+      <div class="headtext">
+        <h3 class="jname">${esc(j.name)}</h3>
+        <div class="venueline">${esc(j.publisher)} · ${n.toLocaleString()} paper${n === 1 ? "" : "s"} in the current window</div>
+      </div>
+      <button class="iconbtn closebtn" id="journal-close">Close</button>
+    </div>
+    <div class="modal-scroll" id="journal-modal-body"></div>`;
+  fillJournalBody($("#journal-modal-body"), papers, null);
+  $("#journal-close").addEventListener("click", closeJournalModal);
+  $("#journal-overlay").classList.add("show");
+}
+function closeJournalModal() { $("#journal-overlay").classList.remove("show"); }
 
 // ------------------------------------------------------------ topic view --
 function renderTopic(rows) {
@@ -265,7 +364,7 @@ function buildIndex(rows) {
     storeFields: [],
     idField: "doi",
   });
-  S.mini.addAll(rows.map((r) => ({ doi: r.doi, title: r.title, authorsText: (r.authors || []).join(" ") })));
+  S.mini.addAll(rows.map((r) => ({ doi: r.doi, title: stripInlineToText(r.title), authorsText: (r.authors || []).join(" ") })));
 }
 
 function renderSearch(rows) {
@@ -292,7 +391,7 @@ async function openPaper(r) {
   const chips = (r.topics || []).map((t) => `<span class="chip">${esc(TOPIC_LABELS[t] || t)}</span>`).join("");
   modal.innerHTML = `
     ${r.si ? `<div class="silabel">Special issue: ${esc(r.si)}</div>` : ""}
-    <h3>${esc(r.title)}</h3>
+    <h3>${sanitizeInline(r.title)}</h3>
     <div class="authors">${esc((r.authors || []).join(", "))}</div>
     <div class="venueline">${esc(j?.name || r.journal)}${vol ? " · " + esc(vol) : ""} · ${r.published}</div>
     <div class="abstract none">Loading abstract…</div>
@@ -309,7 +408,7 @@ async function openPaper(r) {
     const shard = await fetchJSON(`data/shards/${r.journal}/${r.published.slice(0, 4)}.json`);
     const full = shard.find((p) => p.doi === r.doi);
     if (full?.abstract) {
-      absEl.textContent = full.abstract;
+      absEl.innerHTML = sanitizeInline(full.abstract);
       absEl.classList.remove("none");
     } else {
       absEl.textContent = "No abstract available for this paper — follow the source link.";
@@ -366,7 +465,7 @@ async function refresh() {
   else if (S.view === "topic") c.append(renderTopic(S.rows));
   else c.append(renderVenue(S.rows));
   const winLabel = S.win === "year" ? `year ${S.year}`
-    : { 30: "last 30 days", 90: "last 90 days", 365: "last 12 months", 1826: "last 5 years" }[S.win];
+    : { 30: "last 30 days", 90: "last 90 days", 365: "last 12 months", 1826: "last 5 years", all: "since 2000" }[S.win];
   $("#count-note").textContent =
     `${S.rows.length.toLocaleString()} papers · ${ids.size} journals · ${winLabel}`;
   $("#basis-note").textContent = S.mode === "general" ? "" : S.registry.meta.modes[S.mode].basis;
@@ -413,19 +512,45 @@ function initChrome() {
       refresh();
     }));
 
+  const nowYear = new Date().getFullYear();
+  const covNote = $("#cov-note");
+  function updateCoverageNote() {
+    const beyond5 = S.win === "all" || (S.win === "year" && S.year <= nowYear - 5);
+    covNote.textContent = beyond5
+      ? "Data beyond 5 years is available for only some journals — the 26 deep-tier titles are backfilled to 2000; the rest cover roughly the last 5 years."
+      : "";
+    covNote.classList.toggle("show", beyond5);
+  }
+
   $("#win-seg").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => {
       $("#win-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
       b.classList.add("on");
       S.win = b.dataset.w;
       $("#yearpick").classList.toggle("show", S.win === "year");
+      updateCoverageNote();
       refresh();
     }));
 
-  const slider = $("#yearslider");
-  slider.max = new Date().getFullYear();
-  slider.addEventListener("input", () => { $("#yearlabel").textContent = slider.value; });
-  slider.addEventListener("change", () => { S.year = Number(slider.value); refresh(); });
+  // typed-year control (replaces the old scrubber): Enter, blur or the "Go"
+  // button apply the value, clamped to the archive range.
+  const yearInput = $("#yearinput");
+  const yearApply = $("#yearapply");
+  yearInput.max = nowYear;
+  function applyYear() {
+    let y = Math.round(Number(yearInput.value));
+    if (!Number.isFinite(y)) y = S.year;
+    y = Math.min(nowYear, Math.max(ARCHIVE_START_YEAR, y));
+    yearInput.value = y;
+    if (y === S.year && S.win === "year") return;
+    S.year = y;
+    updateCoverageNote();
+    refresh();
+  }
+  yearInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyYear(); } });
+  yearInput.addEventListener("blur", applyYear);
+  yearApply.addEventListener("click", applyYear);
+  updateCoverageNote();
 
   let debounce;
   $("#search").addEventListener("input", (e) => {
@@ -452,8 +577,88 @@ function initChrome() {
   $("#btn-about").addEventListener("click", openAbout);
   $("#paper-overlay").addEventListener("click", (e) => { if (e.target.id === "paper-overlay") closePaper(); });
   $("#about-overlay").addEventListener("click", (e) => { if (e.target.id === "about-overlay") $("#about-overlay").classList.remove("show"); });
+  $("#journal-overlay").addEventListener("click", (e) => { if (e.target.id === "journal-overlay") closeJournalModal(); });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { closePaper(); $("#about-overlay").classList.remove("show"); }
+    if (e.key === "Escape") {
+      closePaper();
+      $("#about-overlay").classList.remove("show");
+      closeJournalModal();
+      closeDisplayPopover();
+    }
+  });
+
+  // ---------------------------------------------------------- display prefs --
+  const body = document.body;
+  const root = document.documentElement;
+  const getPref = (key, fallback) => {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v;
+  };
+
+  // serif toggle (default off — see CSS: body.serif restores the academic
+  // serif on paper titles / modal titles / abstracts only)
+  const serifBtn = $("#btn-serif");
+  function setSerif(on) {
+    body.classList.toggle("serif", on);
+    serifBtn.classList.toggle("on", on);
+    localStorage.setItem("phd-serif", on ? "1" : "0");
+  }
+  serifBtn.addEventListener("click", () => setSerif(!body.classList.contains("serif")));
+  setSerif(getPref("phd-serif", "0") === "1");
+
+  // wide toggle (full-viewport content width)
+  const wideBtn = $("#btn-wide");
+  function setWide(on) {
+    body.classList.toggle("wide", on);
+    wideBtn.classList.toggle("on", on);
+    localStorage.setItem("phd-wide", on ? "1" : "0");
+  }
+  wideBtn.addEventListener("click", () => setWide(!body.classList.contains("wide")));
+  setWide(getPref("phd-wide", "0") === "1");
+
+  // Display popover: zoom + card width + card height sliders
+  const zoomSlider = $("#zoom-slider"), zoomVal = $("#zoom-val");
+  const cardwSlider = $("#cardw-slider"), cardwVal = $("#cardw-val");
+  const cardhSlider = $("#cardh-slider"), cardhVal = $("#cardh-val");
+
+  function setZoom(pct) {
+    root.style.setProperty("--zoom", pct / 100);
+    zoomSlider.value = pct;
+    zoomVal.textContent = `${pct}%`;
+    localStorage.setItem("phd-zoom", pct);
+  }
+  function setCardW(px) {
+    root.style.setProperty("--card-min-w", `${px}px`);
+    cardwSlider.value = px;
+    cardwVal.textContent = `${px}px`;
+    localStorage.setItem("phd-cardw", px);
+  }
+  function setCardH(px) {
+    root.style.setProperty("--card-max-h", `${px}px`);
+    cardhSlider.value = px;
+    cardhVal.textContent = `${px}px`;
+    localStorage.setItem("phd-cardh", px);
+  }
+  setZoom(Number(getPref("phd-zoom", 100)));
+  setCardW(Number(getPref("phd-cardw", 420)));
+  setCardH(Number(getPref("phd-cardh", 430)));
+
+  zoomSlider.addEventListener("input", () => setZoom(Number(zoomSlider.value)));
+  cardwSlider.addEventListener("input", () => setCardW(Number(cardwSlider.value)));
+  cardhSlider.addEventListener("input", () => setCardH(Number(cardhSlider.value)));
+  $("#display-reset").addEventListener("click", () => { setZoom(100); setCardW(420); setCardH(430); });
+
+  const displayBtn = $("#btn-display");
+  const displayPop = $("#display-popover");
+  function closeDisplayPopover() { displayPop.classList.remove("show"); }
+  displayBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    displayPop.classList.toggle("show");
+  });
+  document.addEventListener("click", (e) => {
+    if (displayPop.classList.contains("show") && !displayPop.contains(e.target) && e.target !== displayBtn) {
+      closeDisplayPopover();
+    }
   });
 
   $("#btn-3d").addEventListener("click", async () => {
@@ -468,6 +673,7 @@ function initChrome() {
     S.three.enter({
       state: S, rankedJournals, rankOf, journalById,
       openPaper, esc, TOPIC_LABELS, textOn,
+      sanitizeInline, stripInlineToText,
     });
   });
   $("#btn-exit-3d").addEventListener("click", () => {

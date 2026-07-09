@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 .harvest-cache/
 harvest.log
+LOG.md
+TODO.md

@@ -65,10 +65,41 @@ NOISE_TITLE = re.compile(
     r"list of referees|referees|thanks to (our )?referees|manuscript reviewers|"
     r"from the editors?\b|notes on contributors|announcements?\b|"
     r"reviews? of\b|book reviews?|review essays?|critical notices?|"
-    r"title pending|title to be announced|"
     r"erratum|corrigendum|correction to[:\s]|retraction( notice)?[:\s]?)",
     re.I,
 )
+
+# Placeholder titles a publisher deposits before the real title is ready
+# (record gets fixed by the publisher later; harvest_crossref's --update
+# uses from-index-date, so it self-heals once that happens — we just need
+# to not show the placeholder meanwhile). Originally special-cased for Ergo
+# ("Title Pending"); generalised here since OLH journals (Politics &
+# Philosophy, Free & Equal) and Philosophers' Imprint deposit the same
+# stand-ins. Applied to every journal at ingest, not just specific ids.
+# Patterns:
+#   - "Title Pending" / "Title Pending 9611" (OLH/Ergo, sometimes suffixed
+#     with the publisher's internal article id)
+#   - "Title TBA" / "Title TBD" / "Title to be announced/confirmed/come"
+#   - a title that is *only* "TBA", "TBD", "No Title", "N/A" — matched as a
+#     whole title (not a substring) so we don't clobber real titles that
+#     merely contain these words, e.g. "'Author TBD': Radical
+#     Collaboration..." or "Football: the Philosophy behind the Game"
+#     (contains "tba" inside "football").
+#   Deliberately NOT included: bare "Untitled" / "Forthcoming" — both are
+#   plausible real titles (an artwork/poem literally called "Untitled", a
+#   paper about a forthcoming trend) rather than reliable placeholder
+#   markers, so they're left for manual review instead of auto-filtering.
+PLACEHOLDER_TITLE = re.compile(
+    r"^(title\s*pending\b|title\s*to\s*(be\s*)?(announced|confirmed|come)\b|"
+    r"title\s*tba\b|title\s*tbd\b)"
+    r"|^(tba|tbd|no\s*title(\s*(available|given))?|n/?a)\s*$",
+    re.I,
+)
+
+# A title that is nothing but punctuation/symbols, or is literally a DOI —
+# both seen as deposit-time placeholders (e.g. a lone "**").
+PUNCT_ONLY_TITLE = re.compile(r"^[\W_]+$")
+DOI_SHAPED_TITLE = re.compile(r"^10\.\d{4,9}/\S+$")
 
 # Citation-style book-review titles ("… .New York: Oxford University Press…",
 # "… Pp. 224. $35.00") — reviews deposited with the reviewed book's citation
@@ -183,7 +214,9 @@ def normalise(item: dict, journal: dict) -> dict | None:
     # Chicago deposits book reviews as ":<i>Book Title</i>" — a leading colon
     # in the raw title marks review front-matter, not an article.
     if (not doi or not title or title.startswith(":")
-            or NOISE_TITLE.match(title) or REVIEW_CITE.search(title)):
+            or NOISE_TITLE.match(title) or REVIEW_CITE.search(title)
+            or PLACEHOLDER_TITLE.match(title) or PUNCT_ONLY_TITLE.match(title)
+            or DOI_SHAPED_TITLE.match(title)):
         return None
     if item.get("subtitle"):
         sub = clean_text(item["subtitle"][0])

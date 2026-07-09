@@ -24,10 +24,25 @@
       <div class="spacer"></div>
       <input class="searchbox" id="search" type="search"
              placeholder="Search titles &amp; authors…" autocomplete="off">
+      <button class="iconbtn toggle" id="btn-serif" title="Serif paper titles &amp; abstracts">Serif</button>
+      <button class="iconbtn toggle" id="btn-wide" title="Full-width layout">Wide</button>
+      <div class="display-wrap">
+        <button class="iconbtn" id="btn-display" title="Display settings">Display</button>
+        <div class="popover" id="display-popover">
+          <label>Zoom <span id="zoom-val">100%</span>
+            <input type="range" id="zoom-slider" min="60" max="100" step="5" value="100"></label>
+          <label>Card width <span id="cardw-val">420px</span>
+            <input type="range" id="cardw-slider" min="280" max="600" step="10" value="420"></label>
+          <label>Card height <span id="cardh-val">430px</span>
+            <input type="range" id="cardh-slider" min="200" max="900" step="10" value="430"></label>
+          <button class="iconbtn popover-reset" id="display-reset">Reset</button>
+        </div>
+      </div>
       <button class="iconbtn" id="btn-3d" title="3D view">3D</button>
       <button class="iconbtn" id="btn-theme" title="Toggle light/dark">Theme</button>
       <button class="iconbtn" id="btn-about" title="About the rankings &amp; data">About</button>
     </div>
+    <div class="cov-note" id="cov-note"></div>
     <div class="subrow">
       <span class="label">View</span>
       <nav class="seg small" id="view-seg" aria-label="View">
@@ -42,11 +57,13 @@
         <button data-w="90">90 d</button>
         <button data-w="365" class="on">12 mo</button>
         <button data-w="1826">5 yr</button>
+        <button data-w="all">Since 2000</button>
         <button data-w="year">Year…</button>
       </nav>
       <span class="yearpick" id="yearpick">
-        <input type="range" id="yearslider" min="2000" max="2026" value="2020">
-        <span class="yr" id="yearlabel">2020</span>
+        <input type="number" id="yearinput" min="2000" max="2026" step="1" value="2020"
+               inputmode="numeric" aria-label="Year (Enter applies)">
+        <button class="iconbtn" id="yearapply" title="Show this year — Enter applies">Go</button>
       </span>
       <span class="basis-note" id="basis-note"></span>
       <span class="count-note" id="count-note"></span>
@@ -68,6 +85,11 @@
 <!-- about -->
 <div class="overlay" id="about-overlay">
   <div class="modal about" id="about-modal" role="dialog" aria-modal="true"></div>
+</div>
+
+<!-- journal popout -->
+<div class="overlay" id="journal-overlay">
+  <div class="modal journal-modal" id="journal-modal" role="dialog" aria-modal="true"></div>
 </div>
 
 <!-- 3D mode -->
