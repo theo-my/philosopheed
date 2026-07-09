@@ -1,94 +1,97 @@
-/* Philosopheed — 3D ranked-shelf view (Three.js, vendored). */
+/* Philosopheed — 3D bookshelf view.
+   Journals are books on ranked shelves (spine width ∝ volume, spine colour =
+   cover colour). Click a book: it slides out and opens as a two-page spread of
+   its papers; click the right/left page (or use the panel buttons) to turn
+   pages; click a paper in the side panel for the full record. */
 import * as THREE from "three";
 import { OrbitControls } from "../vendor/OrbitControls.js";
 
-let ctx = null;           // injected from app.js on enter()
+let ctx = null;
 let renderer, scene, camera, controls, raycaster, pointer;
-let panes = [];           // {mesh, journal, target: Vector3}
-let yearSlabs = [];
+let books = [];            // {mesh, journal, home: Vector3, out: Vector3}
+let caseGroup = null;      // shelves + panels
+let spread = null;         // open-book mesh
+let spreadState = null;    // {journal, papers, page, pages}
 let selected = null;
-let running = false;
-let built = false;
+let running = false, built = false;
+let flight = null;
 
-const css = (name) =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const BOOK_H = 2.3, BOOK_D = 1.55, GAP = 0.07, SHELF_W = 15.5;
+const HOME_CAM = new THREE.Vector3(0, 1.6, 13.5);
+const HOME_TGT = new THREE.Vector3(0, 1.0, 0);
+const PER_SPREAD = 10; // 5 per page
 
-function themeColors() {
-  return {
-    page: css("--page") || "#f9f9f7",
-    surface: css("--surface") || "#fcfcfb",
-    ink: css("--ink") || "#0b0b0b",
-    ink2: css("--ink-2") || "#52514e",
-    muted: css("--muted") || "#898781",
-    accent: css("--accent") || "#2a78d6",
-    gold: css("--gold") || "#eda100",
-  };
-}
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const jcolor = (j) => j.color || css("--accent") || "#2a78d6";
 
-// ------------------------------------------------------------ pane texture --
-function paneTexture(journal, rank, count) {
-  const c = themeColors();
-  const W = 1024, H = 560;
+// ------------------------------------------------------------------ spine --
+function spineTexture(journal, rank, count) {
+  const color = jcolor(journal);
+  const text = ctx.textOn(color);
+  const W = 180, H = 1024;
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
   const g = cv.getContext("2d");
-  g.fillStyle = c.surface;
-  g.beginPath(); g.roundRect(0, 0, W, H, 28); g.fill();
-  g.strokeStyle = c.accent; g.lineWidth = 6;
-  g.beginPath(); g.roundRect(3, 3, W - 6, H - 6, 26); g.stroke();
-  // rank badge
-  g.fillStyle = rank <= 3 ? c.gold : c.accent;
-  g.beginPath(); g.roundRect(36, 36, 130, 110, 20); g.fill();
-  g.fillStyle = "#ffffff";
-  g.font = "bold 72px system-ui, sans-serif";
+  g.fillStyle = color;
+  g.fillRect(0, 0, W, H);
+  // subtle edge shading
+  const grad = g.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0, "rgba(0,0,0,0.25)");
+  grad.addColorStop(0.12, "rgba(0,0,0,0)");
+  grad.addColorStop(0.88, "rgba(0,0,0,0)");
+  grad.addColorStop(1, "rgba(0,0,0,0.25)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+  // rank
+  g.fillStyle = text;
+  g.font = "bold 64px system-ui, sans-serif";
   g.textAlign = "center"; g.textBaseline = "middle";
-  g.fillText(rank === Infinity ? "—" : String(rank), 101, 95);
-  // name (wrapped)
-  g.fillStyle = c.ink;
-  g.font = "bold 58px system-ui, sans-serif";
-  g.textAlign = "left"; g.textBaseline = "alphabetic";
-  const words = journal.name.split(" ");
-  let line = "", y = 240;
-  for (const w of words) {
-    const t = line ? line + " " + w : w;
-    if (g.measureText(t).width > W - 100 && line) {
-      g.fillText(line, 48, y); y += 66; line = w;
-    } else line = t;
-    if (y > 380) break;
+  g.fillText(rank === Infinity ? "–" : String(rank), W / 2, 70);
+  g.fillRect(W / 2 - 40, 125, 80, 4);
+  // title down the spine
+  g.save();
+  g.translate(W / 2, 170);
+  g.rotate(Math.PI / 2);
+  g.textAlign = "left";
+  let name = journal.name;
+  let size = 56;
+  g.font = `bold ${size}px system-ui, sans-serif`;
+  while (g.measureText(name).width > 700 && size > 30) {
+    size -= 2;
+    g.font = `bold ${size}px system-ui, sans-serif`;
   }
-  g.fillText(line, 48, y);
-  // meta
-  g.fillStyle = c.ink2;
-  g.font = "36px system-ui, sans-serif";
-  g.fillText(journal.publisher, 48, H - 96);
-  g.fillStyle = c.muted;
+  if (g.measureText(name).width > 700) {
+    while (g.measureText(name + "…").width > 700) name = name.slice(0, -1);
+    name += "…";
+  }
+  g.fillText(name, 0, 0);
+  g.restore();
+  // count near the bottom
+  g.save();
+  g.translate(W / 2, H - 20);
+  g.rotate(-Math.PI / 2);
+  g.textAlign = "left";
   g.font = "34px system-ui, sans-serif";
-  g.fillText(`${count} paper${count === 1 ? "" : "s"} in window`, 48, H - 44);
+  g.globalAlpha = 0.85;
+  g.fillText(`${count}`, 0, 0);
+  g.restore();
   const tex = new THREE.CanvasTexture(cv);
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   return tex;
 }
 
-// ------------------------------------------------------------------ build --
-function layoutTargets() {
-  // gentle arc: rank 1 center-front-top, later ranks fan outward and recede
-  const js = ctx.rankedJournals();
-  const counts = countsByJournal();
-  js.forEach((j, i) => {
-    const p = panes.find((p) => p.journal.id === j.id);
-    if (!p) return;
-    const side = i % 2 === 0 ? 1 : -1;          // alternate right/left of center
-    const k = Math.ceil(i / 2);
-    const angle = side * k * 0.30;
-    const R = 14 + k * 1.1;
-    p.target.set(Math.sin(angle) * R, 4 - k * 0.55, 14 - Math.cos(angle) * R);
-    p.mesh.userData.rank = ctx.rankOf(j);
-    p.mesh.userData.count = counts.get(j.id) || 0;
-    p.mesh.visible = true;
+// ----------------------------------------------------------------- shelves --
+function disposeGroup(grp) {
+  if (!grp) return;
+  grp.traverse((o) => {
+    o.geometry?.dispose();
+    if (o.material) {
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
+        m.map?.dispose(); m.dispose();
+      });
+    }
   });
-  // hide panes not in current mode
-  const ids = new Set(js.map((j) => j.id));
-  panes.forEach((p) => { if (!ids.has(p.journal.id)) p.mesh.visible = false; });
+  scene.remove(grp);
 }
 
 function countsByJournal() {
@@ -97,69 +100,198 @@ function countsByJournal() {
   return m;
 }
 
-function buildPanes() {
-  panes.forEach((p) => { scene.remove(p.mesh); p.mesh.material.map?.dispose(); p.mesh.material.dispose(); });
-  panes = [];
+function buildShelf() {
+  books.forEach((b) => disposeGroup(b.mesh));
+  books = [];
+  disposeGroup(caseGroup);
+  caseGroup = new THREE.Group();
+
+  const js = ctx.rankedJournals();
   const counts = countsByJournal();
-  for (const j of ctx.rankedJournals()) {
-    const count = counts.get(j.id) || 0;
-    const scale = 1 + Math.min(1.0, Math.log10(1 + count) * 0.45);
-    const geo = new THREE.PlaneGeometry(3.4 * scale, 1.86 * scale);
-    const mat = new THREE.MeshBasicMaterial({
-      map: paneTexture(j, ctx.rankOf(j), count),
-      transparent: true, side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.userData.journalId = j.id;
-    mesh.position.set(0, 2, -30);   // fly in from the back
-    scene.add(mesh);
-    panes.push({ mesh, journal: j, target: new THREE.Vector3() });
-  }
-  layoutTargets();
-}
-
-function clearYearSlabs() {
-  yearSlabs.forEach((s) => { scene.remove(s); s.material.map?.dispose(); s.material.dispose(); });
-  yearSlabs = [];
-}
-
-function showYearStack(pane) {
-  clearYearSlabs();
-  const c = themeColors();
-  const ys = ctx.state.stats.journals[pane.journal.id]?.years || {};
-  const years = Object.keys(ys).map(Number).sort((a, b) => b - a).slice(0, 14);
-  years.forEach((y, i) => {
-    const cv = document.createElement("canvas");
-    cv.width = 512; cv.height = 90;
-    const g = cv.getContext("2d");
-    g.fillStyle = c.surface; g.globalAlpha = 0.92;
-    g.beginPath(); g.roundRect(0, 0, 512, 90, 16); g.fill();
-    g.globalAlpha = 1;
-    g.fillStyle = c.ink2; g.font = "bold 44px system-ui, sans-serif";
-    g.textBaseline = "middle";
-    g.fillText(String(y), 28, 47);
-    g.fillStyle = c.muted; g.font = "36px system-ui, sans-serif";
-    g.fillText(`${ys[y]} papers`, 170, 47);
-    const mat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true });
-    const slab = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.42), mat);
-    const base = pane.mesh.position;
-    slab.position.set(base.x, base.y - 1.4 - i * 0.05, base.z - 1.2 - i * 1.05);
-    slab.lookAt(camera.position);
-    scene.add(slab);
-    yearSlabs.push(slab);
+  // pass 1: widths, split into shelves
+  const widths = js.map((j) => 0.24 + Math.min(0.55, Math.log10(1 + (counts.get(j.id) || 0)) * 0.24));
+  const shelves = [[]];
+  let acc = 0;
+  js.forEach((j, i) => {
+    if (acc + widths[i] > SHELF_W) { shelves.push([]); acc = 0; }
+    shelves[shelves.length - 1].push(i);
+    acc += widths[i] + GAP;
   });
+  const topY = 1.0 + (shelves.length - 1) * 1.55;
+  const plankMat = new THREE.MeshBasicMaterial({ color: css("--baseline") || "#c3c2b7" });
+  const backMat = new THREE.MeshBasicMaterial({ color: css("--grid") || "#e1e0d9" });
+
+  shelves.forEach((idxs, s) => {
+    const rowW = idxs.reduce((w, i) => w + widths[i] + GAP, -GAP);
+    const shelfY = topY - s * 3.1;
+    let x = -rowW / 2;
+    for (const i of idxs) {
+      const j = js[i], w = widths[i];
+      const count = counts.get(j.id) || 0;
+      const spineMat = new THREE.MeshBasicMaterial({ map: spineTexture(j, ctx.rankOf(j), count) });
+      const coverMat = new THREE.MeshBasicMaterial({ color: jcolor(j) });
+      const pagesMat = new THREE.MeshBasicMaterial({ color: "#f3efe4" });
+      // faces: +x, -x, +y(top), -y, +z(spine), -z
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(w, BOOK_H, BOOK_D),
+        [coverMat, coverMat, pagesMat, coverMat, spineMat, coverMat]);
+      const home = new THREE.Vector3(x + w / 2, shelfY + BOOK_H / 2, 0);
+      mesh.position.copy(home);
+      mesh.userData.journalId = j.id;
+      scene.add(mesh);
+      books.push({ mesh, journal: j, home, out: home.clone().setZ(1.15) });
+      x += w + GAP;
+    }
+    // plank under the row
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(SHELF_W + 1.2, 0.12, BOOK_D + 0.6), plankMat);
+    plank.position.set(0, shelfY - 0.07, 0);
+    caseGroup.add(plank);
+  });
+  // back panel + sides
+  const totalH = shelves.length * 3.1 + 0.6;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(SHELF_W + 1.2, totalH, 0.08), backMat);
+  back.position.set(0, topY + BOOK_H - totalH / 2 + 0.4, -BOOK_D / 2 - 0.1);
+  caseGroup.add(back);
+  for (const side of [-1, 1]) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(0.14, totalH, BOOK_D + 0.6), plankMat);
+    wall.position.set(side * (SHELF_W / 2 + 0.65), back.position.y, 0);
+    caseGroup.add(wall);
+  }
+  scene.add(caseGroup);
+}
+
+// -------------------------------------------------------------- open book --
+function spreadTexture() {
+  const { journal, papers, page, pages } = spreadState;
+  const W = 2048, H = 1200;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const g = cv.getContext("2d");
+  // paper
+  g.fillStyle = "#faf7ee";
+  g.fillRect(0, 0, W, H);
+  const gut = g.createLinearGradient(W / 2 - 60, 0, W / 2 + 60, 0);
+  gut.addColorStop(0, "rgba(0,0,0,0)");
+  gut.addColorStop(0.5, "rgba(0,0,0,0.18)");
+  gut.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = gut;
+  g.fillRect(W / 2 - 60, 0, 120, H);
+  g.fillStyle = "#2b2a26";
+  g.font = "bold 44px system-ui, sans-serif";
+  g.fillText(journal.name, 70, 80);
+  g.font = "30px system-ui, sans-serif";
+  g.fillStyle = "#7a776e";
+  g.textAlign = "right";
+  g.fillText(`spread ${page + 1} / ${pages}`, W - 70, 80);
+  g.textAlign = "left";
+
+  const start = page * PER_SPREAD;
+  const slice = papers.slice(start, start + PER_SPREAD);
+  const colX = [70, W / 2 + 70];
+  const colW = W / 2 - 150;
+  slice.forEach((p, i) => {
+    const x = colX[i < 5 ? 0 : 1];
+    const y = 170 + (i % 5) * 200;
+    g.fillStyle = "#1d1c19";
+    g.font = "bold 34px system-ui, sans-serif";
+    wrapText(g, p.title, x, y, colW, 42, 2);
+    g.fillStyle = "#6d6a61";
+    g.font = "28px system-ui, sans-serif";
+    const byline = `${(p.authors || []).join(", ")} · ${p.published}`;
+    wrapText(g, byline, x, y + 92, colW, 34, 1);
+    g.strokeStyle = "rgba(0,0,0,0.08)";
+    g.beginPath(); g.moveTo(x, y + 140); g.lineTo(x + colW, y + 140); g.stroke();
+  });
+  if (!slice.length) {
+    g.fillStyle = "#7a776e";
+    g.font = "34px system-ui, sans-serif";
+    g.fillText("No papers in the current window.", 70, 200);
+  }
+  g.fillStyle = "#a29e93";
+  g.font = "26px system-ui, sans-serif";
+  g.fillText("click right page to turn ▸", 70, H - 40);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+function wrapText(g, text, x, y, maxW, lh, maxLines) {
+  const words = String(text).split(" ");
+  let line = "", lines = 0;
+  for (const w of words) {
+    const t = line ? line + " " + w : w;
+    if (g.measureText(t).width > maxW && line) {
+      if (lines === maxLines - 1) {
+        while (g.measureText(line + "…").width > maxW) line = line.slice(0, -1);
+        g.fillText(line + "…", x, y + lines * lh);
+        return;
+      }
+      g.fillText(line, x, y + lines * lh);
+      lines++; line = w;
+    } else line = t;
+  }
+  g.fillText(line, x, y + lines * lh);
+}
+
+function openBook(book) {
+  const rows = ctx.state.rows
+    .filter((r) => r.journal === book.journal.id)
+    .sort((a, b) => b.published.localeCompare(a.published));
+  spreadState = {
+    journal: book.journal, papers: rows, page: 0,
+    pages: Math.max(1, Math.ceil(rows.length / PER_SPREAD)),
+  };
+  if (!spread) {
+    spread = new THREE.Mesh(
+      new THREE.PlaneGeometry(5.6, 3.28),
+      new THREE.MeshBasicMaterial({ map: null, transparent: true }));
+    scene.add(spread);
+  }
+  spread.material.map?.dispose();
+  spread.material.map = spreadTexture();
+  spread.material.needsUpdate = true;
+  spread.position.set(0, 1.15, 5.4);
+  spread.visible = true;
+  flyTo(new THREE.Vector3(0, 1.35, 9.6), spread.position);
+  renderPanel();
+}
+
+function turnPage(dir) {
+  if (!spreadState) return;
+  const next = spreadState.page + dir;
+  if (next < 0 || next >= spreadState.pages) return;
+  spreadState.page = next;
+  spread.material.map?.dispose();
+  spread.material.map = spreadTexture();
+  spread.material.needsUpdate = true;
+  renderPanel();
+}
+
+function closeBook() {
+  if (spread) spread.visible = false;
+  spreadState = null;
+  if (selected) selected = null;
+  document.getElementById("three-panel").classList.remove("show");
+  flyTo(HOME_CAM, HOME_TGT);
 }
 
 // ------------------------------------------------------------------ panel --
-function showPanel(journal) {
-  const rows = ctx.state.rows
-    .filter((r) => r.journal === journal.id)
-    .sort((a, b) => b.published.localeCompare(a.published));
+function renderPanel() {
+  const { journal, papers, page, pages } = spreadState;
   const panel = document.getElementById("three-panel");
   const rank = ctx.rankOf(journal);
   panel.innerHTML = `<h3>${ctx.esc(journal.name)}</h3>
-    <div class="sub">${ctx.esc(journal.publisher)} · rank ${rank === Infinity ? "unranked" : rank} · ${rows.length} papers in window</div>`;
-  rows.slice(0, 40).forEach((r) => {
+    <div class="sub">${ctx.esc(journal.publisher)} · rank ${rank === Infinity ? "unranked" : rank} · ${papers.length} papers in window</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <button class="iconbtn" id="pg-prev">‹</button>
+      <span class="sub" style="margin:0">spread ${page + 1} / ${pages}</span>
+      <button class="iconbtn" id="pg-next">›</button>
+      <button class="iconbtn" id="pg-close" style="margin-left:auto">Close book</button>
+    </div>`;
+  panel.querySelector("#pg-prev").addEventListener("click", () => turnPage(-1));
+  panel.querySelector("#pg-next").addEventListener("click", () => turnPage(1));
+  panel.querySelector("#pg-close").addEventListener("click", closeBook);
+  papers.slice(page * PER_SPREAD, page * PER_SPREAD + PER_SPREAD).forEach((r) => {
     const b = document.createElement("button");
     b.className = "paper";
     b.innerHTML = `<div class="ptitle">${ctx.esc(r.title)}</div>
@@ -167,13 +299,6 @@ function showPanel(journal) {
     b.addEventListener("click", () => ctx.openPaper(r));
     panel.append(b);
   });
-  if (rows.length > 40) {
-    const note = document.createElement("div");
-    note.className = "sub";
-    note.style.marginTop = "8px";
-    note.textContent = `…and ${rows.length - 40} more — use the dashboard view for the full list.`;
-    panel.append(note);
-  }
   panel.classList.add("show");
 }
 
@@ -183,43 +308,38 @@ function onClick(e) {
   pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(panes.filter((p) => p.mesh.visible).map((p) => p.mesh));
-  if (!hits.length) {
-    selected = null;
-    document.getElementById("three-panel").classList.remove("show");
-    clearYearSlabs();
-    return;
+  // page turn when the spread is open and clicked
+  if (spread?.visible) {
+    const hit = raycaster.intersectObject(spread);
+    if (hit.length) {
+      turnPage(hit[0].uv.x > 0.5 ? 1 : -1);
+      return;
+    }
   }
-  const pane = panes.find((p) => p.mesh === hits[0].object);
-  selected = pane;
-  showPanel(pane.journal);
-  showYearStack(pane);
-  // fly toward the pane
-  const t = pane.target.clone().add(new THREE.Vector3(0, 0.4, 5.2));
-  flyTo(t, pane.target);
+  const hits = raycaster.intersectObjects(books.map((b) => b.mesh));
+  if (!hits.length) { if (spreadState) closeBook(); return; }
+  const book = books.find((b) => b.mesh === hits[0].object);
+  selected = book;
+  openBook(book);
 }
 
-let flight = null;
 function flyTo(camPos, lookAt) {
   flight = {
-    fromP: camera.position.clone(), toP: camPos,
-    fromT: controls.target.clone(), toT: lookAt.clone(),
-    t: 0,
+    fromP: camera.position.clone(), toP: camPos.clone(),
+    fromT: controls.target.clone(), toT: lookAt.clone(), t: 0,
   };
 }
 
-// ------------------------------------------------------------------- loop --
+// -------------------------------------------------------------------- loop --
 function animate() {
   if (!running) return;
   requestAnimationFrame(animate);
-  panes.forEach((p) => {
-    if (p.mesh.visible) {
-      p.mesh.position.lerp(p.target, 0.06);
-      p.mesh.lookAt(camera.position.x, p.mesh.position.y, camera.position.z + 8);
-    }
+  books.forEach((b) => {
+    const target = b === selected ? b.out : b.home;
+    b.mesh.position.lerp(target, 0.16);
   });
   if (flight) {
-    flight.t = Math.min(1, flight.t + 0.03);
+    flight.t = Math.min(1, flight.t + 0.045);
     const k = 1 - Math.pow(1 - flight.t, 3);
     camera.position.lerpVectors(flight.fromP, flight.toP, k);
     controls.target.lerpVectors(flight.fromT, flight.toT, k);
@@ -230,47 +350,52 @@ function animate() {
 }
 
 function onResize() {
-  const w = window.innerWidth, h = window.innerHeight;
-  camera.aspect = w / h;
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
+  renderer.setSize(innerWidth, innerHeight);
 }
 
-// -------------------------------------------------------------------- API --
+// --------------------------------------------------------------------- API --
 export function enter(context) {
   ctx = context;
   if (!built) {
-    const holder = document.getElementById("three-canvas");
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    holder.append(renderer.domElement);
+    renderer.setSize(innerWidth, innerHeight);
+    document.getElementById("three-canvas").append(renderer.domElement);
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 300);
-    camera.position.set(0, 3.2, 22);
+    camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+    camera.position.copy(HOME_CAM);
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.target.set(0, 1.5, 0);
-    controls.maxDistance = 60;
-    controls.minDistance = 3;
+    controls.dampingFactor = 0.12;
+    controls.rotateSpeed = 0.55;
+    controls.target.copy(HOME_TGT);
+    controls.minDistance = 2.5;
+    controls.maxDistance = 40;
+    controls.maxPolarAngle = Math.PI * 0.62;
     raycaster = new THREE.Raycaster();
     pointer = new THREE.Vector2();
     renderer.domElement.addEventListener("click", onClick);
     window.addEventListener("resize", onResize);
     built = true;
   }
-  buildPanes();
+  buildShelf();
+  camera.position.copy(HOME_CAM);
+  controls.target.copy(HOME_TGT);
   running = true;
   animate();
 }
 
 export function exit() {
   running = false;
-  selected = null;
-  clearYearSlabs();
+  if (spreadState) {
+    spread.visible = false;
+    spreadState = null;
+    selected = null;
+  }
   document.getElementById("three-panel").classList.remove("show");
 }
 
-export function setRanking() { if (running) buildPanes(); }
-export function setMode() { if (running) buildPanes(); }
+export function setRanking() { if (running) { closeBook(); buildShelf(); } }
+export function setMode() { if (running) { closeBook(); buildShelf(); } }

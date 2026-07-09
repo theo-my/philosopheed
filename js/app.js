@@ -29,6 +29,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const TOPIC_LABELS = {
+  "blame-resp": "Blame & moral responsibility",
   ethics: "Ethics & moral philosophy", political: "Political philosophy",
   epistemology: "Epistemology", metaphysics: "Metaphysics",
   mind: "Mind & cognitive science", language: "Language",
@@ -115,8 +116,20 @@ function sparkline(jid) {
 function rankBadge(j) {
   const r = rankOf(j);
   if (r === Infinity) return `<span class="rankbadge unranked" title="Not ranked in the selected ranking">—</span>`;
-  const cls = r <= 3 ? "rankbadge top" : "rankbadge";
-  return `<span class="${cls}">${r}</span>`;
+  return `<span class="rankbadge">${r}</span>`;
+}
+
+// per-journal cover colour (from registry), with readable text on top
+export function textOn(hex) {
+  const c = hex.replace("#", "");
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(c.slice(i, i + 2), 16));
+  return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? "#0b0b0b" : "#ffffff";
+}
+function applyColor(node, j) {
+  if (j.color) {
+    node.style.setProperty("--jc", j.color);
+    node.style.setProperty("--jc-text", textOn(j.color));
+  }
 }
 
 function paperRow(r, showJournal) {
@@ -125,40 +138,56 @@ function paperRow(r, showJournal) {
   const jn = showJournal ? `<span class="pj">${esc(j?.name || r.journal)}</span> · ` : "";
   const date = r.published;
   const b = el("button", "paper");
-  b.innerHTML = `<div class="ptitle">${esc(r.title)}</div>
-    <div class="pmeta">${esc(authors) || "<i>—</i>"} · ${jn}${date}${r.ha ? "" : ""}</div>`;
+  const si = r.si ? `<span class="sichip" title="${esc(r.si)}">SI</span>` : "";
+  b.innerHTML = `<div class="ptitle">${si}${esc(r.title)}</div>
+    <div class="pmeta">${esc(authors) || "<i>—</i>"} · ${jn}${date}</div>`;
   b.addEventListener("click", () => openPaper(r));
   return b;
 }
 
 // ------------------------------------------------------------ venue view --
+const PREVIEW = 6;
+
 function renderVenue(rows) {
   const byJ = new Map();
   rows.forEach((r) => {
     if (!byJ.has(r.journal)) byJ.set(r.journal, []);
     byJ.get(r.journal).push(r);
   });
-  const root = el("div");
+  const root = el("div", "jgrid");
   for (const j of rankedJournals()) {
     const papers = byJ.get(j.id) || [];
     const card = el("div", "jcard");
-    const ceased = j.active === false
-      ? `<span class="jceased">ceased ${esc((j.tags || []).find(t => t.startsWith("ceased-"))?.slice(7) || "")}</span>` : "";
+    applyColor(card, j);
+    const ceased = j.active === false ? `<span class="jceased">ceased</span>` : "";
     const head = el("div", "jhead");
     head.innerHTML = `${rankBadge(j)}
       <div><div class="jname">${esc(j.name)} ${ceased}</div>
       <div class="jmeta">${esc(j.publisher)}</div></div>
       <div class="jright"><span class="jcount"><b>${papers.length}</b> in window</span>
-      ${sparkline(j.id)}<span class="chev">›</span></div>`;
+      ${sparkline(j.id)}</div>`;
     const body = el("div", "jbody");
-    head.addEventListener("click", () => {
-      card.classList.toggle("open");
-      if (card.classList.contains("open") && !body.dataset.filled) {
-        fillJournalBody(body, papers);
-        body.dataset.filled = "1";
-      }
-    });
+    papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, false)));
+    if (!papers.length) body.append(el("div", "status", "No papers in this window."));
     card.append(head, body);
+    if (papers.length > PREVIEW) {
+      const more = el("button", "showmore", `All ${papers.length} papers`);
+      more.addEventListener("click", () => {
+        const expanded = card.classList.toggle("expanded");
+        body.innerHTML = "";
+        if (expanded) {
+          fillJournalBody(body, papers);
+          more.textContent = "Collapse";
+        } else {
+          papers.slice(0, PREVIEW).forEach((r) => body.append(paperRow(r, false)));
+          more.textContent = `All ${papers.length} papers`;
+          card.scrollIntoView({ block: "nearest" });
+        }
+      });
+      body.after(more);
+      more.style.margin = "0 15px 12px";
+      more.style.width = "calc(100% - 30px)";
+    }
     root.append(card);
   }
   return root;
@@ -399,15 +428,21 @@ function initChrome() {
     debounce = setTimeout(() => { S.query = e.target.value.trim(); refresh(); }, 200);
   });
 
-  $("#btn-theme").addEventListener("click", () => {
-    const cur = document.documentElement.dataset.theme ||
-      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    const next = cur === "dark" ? "light" : "dark";
+  const effTheme = () => document.documentElement.dataset.theme ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const themeBtn = $("#btn-theme");
+  const labelTheme = () => {
+    themeBtn.textContent = effTheme() === "dark" ? "Light mode" : "Dark mode";
+  };
+  themeBtn.addEventListener("click", () => {
+    const next = effTheme() === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     localStorage.setItem("phd-theme", next);
+    labelTheme();
   });
   const saved = localStorage.getItem("phd-theme");
   if (saved) document.documentElement.dataset.theme = saved;
+  labelTheme();
 
   $("#btn-about").addEventListener("click", openAbout);
   $("#paper-overlay").addEventListener("click", (e) => { if (e.target.id === "paper-overlay") closePaper(); });
@@ -427,7 +462,7 @@ function initChrome() {
     $("#three-wrap").classList.add("show");
     S.three.enter({
       state: S, rankedJournals, rankOf, journalById,
-      openPaper, esc, TOPIC_LABELS,
+      openPaper, esc, TOPIC_LABELS, textOn,
     });
   });
   $("#btn-exit-3d").addEventListener("click", () => {

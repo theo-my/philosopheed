@@ -82,6 +82,7 @@ REVIEW_CITE = re.compile(
 
 TOPICS = {
     "ethics": r"ethic(s|al|ist)?|moral(ity|ly|ism)?|\bblame(worthy|worthiness)?\b|praise|responsib|obligat|\bduty\b|\bduties\b|virtue|vice\b|consequentialis|deontolog|utilitarian|metaethic|normativ|wrong(doing|ness)|supererogat|well-?being|welfare|\bharm\b|\bconsent\b",
+    "blame-resp": r"\bblam(e|ed|ing|eless)|blamewor|praisewor|moral(ly)? responsib|responsibility|reactive attitudes?|resentment|indignation|\bguilt(y)?\b|\bshame\b|forgiv|apolog|accountabl|answerabl|attributabl|culpab|\bexcus(e|es|ing)\b|moral luck|moral psycholog|moral emotions?|hypocri|standing to blame|\bdesert\b|\bremorse\b|\bamends\b",
     "political": r"politic|justice|democra|liberal|\brights\b|equalit|egalitarian|libertarian|republican|legitimacy|public reason|oppression|exploitation|\bstate\b.*authority|civic|citizenship|migration|punishment",
     "epistemology": r"epistem|knowledge|\bbelief\b|justification|eviden(ce|tial)|testimony|disagreement|s[ck]eptic|credence|understanding\b|rationalit|\bluck\b|internalis|externalis|reliabilis",
     "metaphysics": r"metaphysic|ontolog|causation|\bcausal|modalit|possible worlds?|essence|grounding|persistence|personal identity|free will|\btime\b|mereolog|dispositions?|truthmak|composition|realism\b|nominalis",
@@ -159,13 +160,17 @@ def pick_date(item: dict) -> str | None:
     return min(cands).isoformat() if cands else None
 
 
-def norm_authors(item: dict) -> list[str]:
+def norm_authors(item: dict, journal: dict) -> list[str]:
     out = []
+    pub = (journal.get("publisher") or "").lower()
     for a in item.get("author", []) or []:
         if a.get("family"):
             out.append(f"{a.get('given', '')} {a['family']}".strip())
         elif a.get("name"):
-            out.append(a["name"])
+            # some publishers (e.g. PDC) deposit themselves as an org author
+            name = a["name"].strip()
+            if name.lower() not in pub and pub not in name.lower():
+                out.append(name)
     return out
 
 
@@ -183,6 +188,7 @@ def normalise(item: dict, journal: dict) -> dict | None:
         sub = clean_text(item["subtitle"][0])
         if sub and sub.lower() not in title.lower():
             title = f"{title}: {sub}"
+    title = re.sub(r"\s+in advance$", "", title, flags=re.I)  # PDC advance-online suffix
     pub = pick_date(item)
     if not pub:
         return None
@@ -190,7 +196,7 @@ def normalise(item: dict, journal: dict) -> dict | None:
     return {
         "doi": doi.lower(),
         "title": title,
-        "authors": norm_authors(item),
+        "authors": norm_authors(item, journal),
         "journal": journal["id"],
         "published": pub,
         "volume": item.get("volume"),
@@ -438,6 +444,8 @@ def main() -> int:
     ap.add_argument("--backfill", nargs="*", metavar="ID")
     ap.add_argument("--update", nargs="*", metavar="ID")
     ap.add_argument("--rebuild", action="store_true")
+    ap.add_argument("--retag", action="store_true",
+                    help="re-run topic tagging + SI detection over all shards")
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
 
@@ -517,10 +525,29 @@ def main() -> int:
             touched = True
             log(f"  done {j['id']}: {len(papers)} fetched, {added} new")
 
+    if args.retag:
+        for j in registry["journals"]:
+            jdir = SHARDS / j["id"]
+            if not jdir.exists():
+                continue
+            n = 0
+            pub = (j.get("publisher") or "").lower()
+            for f in sorted(jdir.glob("*.json")):
+                rows = json.loads(f.read_text())
+                for r in rows:
+                    r["title"] = re.sub(r"\s+in advance$", "", r["title"], flags=re.I)
+                    r["authors"] = [a for a in r.get("authors", [])
+                                    if a.lower() not in pub and pub not in a.lower()]
+                    r["topics"] = tag_topics(r["title"], r.get("abstract", ""), j)
+                write_shard(j["id"], int(f.stem), {r["doi"]: r for r in rows})
+                n += len(rows)
+            log(f"retagged {j['id']}: {n}")
+        touched = True
+
     if args.rebuild or touched:
         rebuild_derived(registry)
 
-    if not (args.rebuild or args.backfill is not None or args.update is not None):
+    if not (args.rebuild or args.retag or args.backfill is not None or args.update is not None):
         ap.print_help()
         return 1
     return 0

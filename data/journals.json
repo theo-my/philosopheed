@@ -1,109 +1,1594 @@
 {
-  "meta": {
-    "generated": "2026-07-09",
-    "tiers": {
-      "deep": "backfilled from 2000-01-01",
-      "std": "backfilled from 2021-07-01 (rolling ~5 years at launch)"
-    },
-    "rankings": {
-      "db_pca": {
-        "label": "de Bruin 2023 (PCA meta-ranking)",
-        "description": "Principal-component aggregation of Leiter 2018, SJR, CiteScore, h5-index and JNCI rankings. The paper's headline ordering. Canonical default for Philosopheed.",
-        "source": "de Bruin, B. (2023). Ranking philosophy journals: a meta-ranking and a new survey ranking. Synthese 202:188.",
-        "url": "https://doi.org/10.1007/s11229-023-04342-9"
-      },
-      "db_am": {
-        "label": "de Bruin 2023 (arithmetic-mean variant)",
-        "description": "Same paper, arithmetic-mean aggregation. Kept as secondary data.",
-        "source": "de Bruin, B. (2023). Synthese 202:188.",
-        "url": "https://doi.org/10.1007/s11229-023-04342-9"
-      },
-      "leiter": {
-        "label": "Leiter 2022 poll",
-        "description": "Best 'general' philosophy journals 2022 — pairwise-comparison reader poll on Leiter Reports (~1,000 participants, ~90,000 votes). Ties share a rank.",
-        "source": "Leiter Reports, 25 July 2022.",
-        "url": "https://leiterreports.com/2022/07/25/best-general-philosophy-journals-2022/"
-      },
-      "leiter_mp": {
-        "label": "Leiter 2022 moral/political specialist poll",
-        "description": "Specialist journals publishing the best moral and/or political philosophy — Condorcet reader poll (329 votes). Book-series entries (Oxford Studies) excluded here.",
-        "source": "Leiter Reports, 4 August 2022.",
-        "url": "https://leiterreports.com/2022/08/04/specialist-journals-that-publish-the-best-articles-in-moral-and-or-political-philosophy-the-results/"
-      }
-    },
-    "modes": {
-      "general": {"label": "General philosophy", "basis": "de Bruin (2023) meta-ranking; toggle to Leiter 2022 poll"},
-      "ethics": {"label": "Ethics & political", "basis": "Leiter 2022 moral/political specialist poll + field consensus"},
-      "philsci": {"label": "Philosophy of science", "basis": "Curated: field consensus (no Leiter specialist poll exists)"},
-      "philtech": {"label": "Technology & AI", "basis": "Curated: Philosophers' Cocoon 2026 tiering + field consensus"}
-    }
+ "meta": {
+  "generated": "2026-07-09",
+  "tiers": {
+   "deep": "backfilled from 2000-01-01",
+   "std": "backfilled from 2021-07-01 (rolling ~5 years at launch)"
   },
-  "journals": [
-    {"id": "nous", "name": "Noûs", "publisher": "Wiley", "issn": ["0029-4624", "1468-0068"], "rss": "https://onlinelibrary.wiley.com/feed/14680068/most-recent", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 1, "db_am": 1, "leiter": 2}, "tags": []},
-    {"id": "phil-studies", "name": "Philosophical Studies", "publisher": "Springer", "issn": ["0031-8116", "1573-0883"], "rss": "https://link.springer.com/search.rss?facet-journal-id=11098&query=&facet-content-type=Article", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 2, "db_am": 5, "leiter": 7}, "tags": []},
-    {"id": "ppr", "name": "Philosophy and Phenomenological Research", "publisher": "Wiley", "issn": ["0031-8205", "1933-1592"], "rss": "https://onlinelibrary.wiley.com/feed/19331592/most-recent", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 3, "db_am": 3, "leiter": 3}, "tags": []},
-    {"id": "synthese", "name": "Synthese", "publisher": "Springer", "issn": ["0039-7857", "1573-0964"], "rss": "https://link.springer.com/search.rss?facet-journal-id=11229&query=&facet-content-type=Article", "modes": ["general", "philsci"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 4, "db_am": 4, "leiter": 11}, "mode_rank": {"philsci": 3}, "tags": ["high-volume"]},
-    {"id": "mind", "name": "Mind", "publisher": "Oxford University Press", "issn": ["0026-4423", "1460-2113"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 5, "db_am": 2, "leiter": 4}, "tags": []},
-    {"id": "ajp", "name": "Australasian Journal of Philosophy", "publisher": "Taylor & Francis", "issn": ["0004-8402", "1471-6828"], "rss": "https://www.tandfonline.com/feed/rss/rajp20", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 6, "db_am": 7, "leiter": 6}, "tags": []},
-    {"id": "phil-review", "name": "Philosophical Review", "publisher": "Duke University Press", "issn": ["0031-8108", "1558-1470"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 7, "db_am": 6, "leiter": 1}, "tags": []},
-    {"id": "jphil", "name": "Journal of Philosophy", "publisher": "Journal of Philosophy, Inc.", "issn": ["0022-362X", "1939-8549"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 8, "db_am": 8, "leiter": 5}, "tags": []},
-    {"id": "ppq", "name": "Pacific Philosophical Quarterly", "publisher": "Wiley", "issn": ["0279-0750", "1468-0114"], "rss": "https://onlinelibrary.wiley.com/feed/14680114/most-recent", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 9, "db_am": 10, "leiter": 16}, "tags": []},
-    {"id": "erkenntnis", "name": "Erkenntnis", "publisher": "Springer", "issn": ["0165-0106", "1572-8420"], "rss": "https://link.springer.com/search.rss?facet-journal-id=10670&query=&facet-content-type=Article", "modes": ["general", "philsci"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 10, "db_am": 12, "leiter": 14}, "mode_rank": {"philsci": 6}, "tags": []},
-    {"id": "pq", "name": "Philosophical Quarterly", "publisher": "Oxford University Press", "issn": ["0031-8094", "1467-9213"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 11, "db_am": 9, "leiter": 9}, "tags": []},
-    {"id": "ejp", "name": "European Journal of Philosophy", "publisher": "Wiley", "issn": ["0966-8373", "1468-0378"], "rss": "https://onlinelibrary.wiley.com/feed/14680378/most-recent", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 12, "db_am": 11, "leiter": 16}, "tags": []},
-    {"id": "cjp", "name": "Canadian Journal of Philosophy", "publisher": "Cambridge University Press", "issn": ["0045-5091", "1911-0820"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 13, "db_am": 14, "leiter": 12}, "tags": []},
-    {"id": "phil-issues", "name": "Philosophical Issues", "publisher": "Wiley", "issn": ["1533-6077", "1758-2237"], "rss": "https://onlinelibrary.wiley.com/feed/17582237/most-recent", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 14, "db_am": 13, "leiter": 24}, "tags": ["annual"]},
-    {"id": "inquiry", "name": "Inquiry", "publisher": "Taylor & Francis", "issn": ["0020-174X", "1502-3923"], "rss": "https://www.tandfonline.com/feed/rss/sinq20", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 15, "db_am": 15, "leiter": 20}, "tags": []},
-    {"id": "japa", "name": "Journal of the American Philosophical Association", "publisher": "Cambridge University Press", "issn": ["2053-4477", "2053-4485"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 16, "db_am": 16, "leiter": 19}, "tags": ["launched-2015"]},
-    {"id": "phil-imprint", "name": "Philosophers' Imprint", "publisher": "Michigan Publishing", "issn": ["1533-628X"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 17, "db_am": 17, "leiter": 8}, "tags": ["open-access"]},
-    {"id": "analysis", "name": "Analysis", "publisher": "Oxford University Press", "issn": ["0003-2638", "1467-8284"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 18, "db_am": 18, "leiter": 10}, "tags": []},
-    {"id": "apq", "name": "American Philosophical Quarterly", "publisher": "University of Illinois Press", "issn": ["0003-0481", "2152-1123"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 19, "db_am": 19, "leiter": 18}, "tags": []},
-    {"id": "ratio", "name": "Ratio", "publisher": "Wiley", "issn": ["0034-0006", "1467-9329"], "rss": "https://onlinelibrary.wiley.com/feed/14679329/most-recent", "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"db_pca": 20, "db_am": 20, "leiter": 25}, "tags": []},
-    {"id": "metaphilosophy", "name": "Metaphilosophy", "publisher": "Wiley", "issn": ["0026-1068", "1467-9973"], "rss": "https://onlinelibrary.wiley.com/feed/14679973/most-recent", "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 21, "db_am": 21}, "tags": []},
-    {"id": "sjp", "name": "Southern Journal of Philosophy", "publisher": "Wiley", "issn": ["0038-4283", "2041-6962"], "rss": "https://onlinelibrary.wiley.com/feed/20416962/most-recent", "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 22, "db_am": 22}, "tags": []},
-    {"id": "res-phil", "name": "Res Philosophica", "publisher": "Philosophy Documentation Center", "issn": ["2168-9105"], "rss": null, "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 23, "db_am": 24}, "tags": []},
-    {"id": "dialectica", "name": "Dialectica", "publisher": "philosophie.ch", "issn": ["0012-2017", "1746-8361"], "rss": null, "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 24, "db_am": 23}, "tags": ["open-access"]},
-    {"id": "philosophia", "name": "Philosophia", "publisher": "Springer", "issn": ["0048-3893", "1574-9274"], "rss": "https://link.springer.com/search.rss?facet-journal-id=11406&query=&facet-content-type=Article", "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 25, "db_am": 25}, "tags": []},
-    {"id": "thought", "name": "Thought: A Journal of Philosophy", "publisher": "Philosophy Documentation Center", "issn": ["2161-2234"], "rss": null, "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 26, "db_am": 26, "leiter": 23}, "tags": []},
-    {"id": "philosophy", "name": "Philosophy", "publisher": "Cambridge University Press", "issn": ["0031-8191", "1469-817X"], "rss": null, "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 27, "db_am": 27}, "tags": []},
-    {"id": "ipq", "name": "International Philosophical Quarterly", "publisher": "Philosophy Documentation Center", "issn": ["0019-0365"], "rss": null, "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 28, "db_am": 29}, "tags": []},
-    {"id": "rev-metaphysics", "name": "Review of Metaphysics", "publisher": "Philosophy Education Society / Project MUSE", "issn": ["0034-6632", "2154-1302"], "rss": null, "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"db_pca": 29, "db_am": 28}, "tags": []},
-    {"id": "pas", "name": "Proceedings of the Aristotelian Society", "publisher": "Oxford University Press", "issn": ["0066-7374", "1467-9264"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"leiter": 12}, "tags": ["invited"]},
-    {"id": "ergo", "name": "Ergo", "publisher": "University of Michigan Library", "issn": ["2330-4014"], "rss": null, "modes": ["general"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"leiter": 14}, "tags": ["open-access", "launched-2013"]},
-    {"id": "phil-perspectives", "name": "Philosophical Perspectives", "publisher": "Wiley", "issn": ["1520-8583"], "rss": "https://onlinelibrary.wiley.com/feed/15208583/most-recent", "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter": 21}, "tags": ["annual"]},
-    {"id": "monist", "name": "The Monist", "publisher": "Oxford University Press", "issn": ["0026-9662", "2153-3601"], "rss": null, "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter": 22}, "tags": []},
-    {"id": "phil-topics", "name": "Philosophical Topics", "publisher": "Philosophy Documentation Center", "issn": ["0276-2080"], "rss": null, "modes": ["general"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter": 25}, "tags": []},
-    {"id": "ethics", "name": "Ethics", "publisher": "University of Chicago Press", "issn": ["0014-1704", "1539-297X"], "rss": "https://www.journals.uchicago.edu/action/showFeed?type=etoc&feed=rss&jc=et", "modes": ["ethics"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"leiter_mp": 1}, "mode_rank": {"ethics": 1}, "tags": []},
-    {"id": "ppa", "name": "Philosophy & Public Affairs", "publisher": "Wiley", "issn": ["0048-3915", "1088-4963"], "rss": "https://onlinelibrary.wiley.com/feed/10884963/most-recent", "modes": ["ethics"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {"leiter_mp": 2}, "mode_rank": {"ethics": 2}, "tags": [], "notes": "Editorial board resigned 2024 and founded Free & Equal; journal continues under Wiley."},
-    {"id": "jpp", "name": "Journal of Political Philosophy", "publisher": "Wiley", "issn": ["0963-8016", "1467-9760"], "rss": null, "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": false, "rankings": {"leiter_mp": 3}, "mode_rank": {"ethics": 3}, "tags": ["ceased-2026"], "notes": "Ceased 1 Jan 2026 after editor/board resignation. Successor: Political Philosophy (OLH)."},
-    {"id": "jmp", "name": "Journal of Moral Philosophy", "publisher": "Brill", "issn": ["1740-4681", "1745-5243"], "rss": null, "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter_mp": 4}, "mode_rank": {"ethics": 4}, "tags": []},
-    {"id": "utilitas", "name": "Utilitas", "publisher": "Cambridge University Press", "issn": ["0953-8208", "1741-6183"], "rss": null, "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter_mp": 5}, "mode_rank": {"ethics": 5}, "tags": []},
-    {"id": "econ-phil", "name": "Economics & Philosophy", "publisher": "Cambridge University Press", "issn": ["0266-2671", "1474-0028"], "rss": null, "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter_mp": 6}, "mode_rank": {"ethics": 6}, "tags": []},
-    {"id": "jesp", "name": "Journal of Ethics and Social Philosophy", "publisher": "University of Southern California", "issn": ["1559-3061"], "rss": "https://www.jesp.org/feed.xml", "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter_mp": 7}, "mode_rank": {"ethics": 7}, "tags": ["open-access"]},
-    {"id": "ppe", "name": "Politics, Philosophy & Economics", "publisher": "Sage", "issn": ["1470-594X", "1741-3060"], "rss": "https://journals.sagepub.com/action/showFeed?ui=0&mi=0&ai=2b4&jc=ppe&type=etoc&feed=rss", "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter_mp": 8}, "mode_rank": {"ethics": 8}, "tags": []},
-    {"id": "j-ethics", "name": "The Journal of Ethics", "publisher": "Springer", "issn": ["1382-4554", "1572-8609"], "rss": "https://link.springer.com/search.rss?facet-journal-id=10892&query=&facet-content-type=Article", "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter_mp": 12}, "mode_rank": {"ethics": 9}, "tags": []},
-    {"id": "etmp", "name": "Ethical Theory and Moral Practice", "publisher": "Springer", "issn": ["1386-2820", "1572-8447"], "rss": "https://link.springer.com/search.rss?facet-journal-id=10677&query=&facet-content-type=Article", "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter_mp": 13}, "mode_rank": {"ethics": 10}, "tags": []},
-    {"id": "jap", "name": "Journal of Applied Philosophy", "publisher": "Wiley", "issn": ["0264-3758", "1468-5930"], "rss": "https://onlinelibrary.wiley.com/feed/14685930/most-recent", "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {"leiter_mp": 15}, "mode_rank": {"ethics": 11}, "tags": []},
-    {"id": "pol-phil", "name": "Political Philosophy", "publisher": "Open Library of Humanities", "issn": ["3033-3830"], "rss": null, "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"ethics": 12}, "tags": ["open-access", "launched-2024"], "notes": "Successor to Journal of Political Philosophy (Goodin et al.)."},
-    {"id": "free-equal", "name": "Free & Equal", "publisher": "Open Library of Humanities", "issn": ["2977-5930"], "rss": null, "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"ethics": 13}, "tags": ["open-access", "launched-2024"], "notes": "Founded by the resigned Philosophy & Public Affairs editorial board."},
-    {"id": "bioethics", "name": "Bioethics", "publisher": "Wiley", "issn": ["0269-9702", "1467-8519"], "rss": "https://onlinelibrary.wiley.com/feed/14678519/most-recent", "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"ethics": 14}, "tags": ["applied-adjacent"]},
-    {"id": "jme", "name": "Journal of Medical Ethics", "publisher": "BMJ", "issn": ["0306-6800", "1473-4257"], "rss": "https://jme.bmj.com/rss/current.xml", "modes": ["ethics"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"ethics": 15}, "tags": ["applied-adjacent", "high-volume"]},
-    {"id": "bjps", "name": "British Journal for the Philosophy of Science", "publisher": "University of Chicago Press", "issn": ["0007-0882", "1464-3537"], "rss": "https://www.journals.uchicago.edu/action/showFeed?type=etoc&feed=rss&jc=bjps", "modes": ["philsci"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {}, "mode_rank": {"philsci": 1}, "tags": [], "notes": "Moved OUP→Chicago in 2021."},
-    {"id": "phil-sci", "name": "Philosophy of Science", "publisher": "Cambridge University Press", "issn": ["0031-8248", "1539-767X"], "rss": null, "modes": ["philsci"], "tier": "deep", "backfill_from": "2000-01-01", "active": true, "rankings": {}, "mode_rank": {"philsci": 2}, "tags": [], "notes": "Moved Chicago→Cambridge in 2023."},
-    {"id": "shps", "name": "Studies in History and Philosophy of Science", "publisher": "Elsevier", "issn": ["0039-3681", "1879-2510"], "rss": "https://rss.sciencedirect.com/publication/science/00393681", "modes": ["philsci"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philsci": 4}, "tags": [], "notes": "Absorbed Parts B and C in 2021."},
-    {"id": "ejps", "name": "European Journal for Philosophy of Science", "publisher": "Springer", "issn": ["1879-4912", "1879-4920"], "rss": "https://link.springer.com/search.rss?facet-journal-id=13194&query=&facet-content-type=Article", "modes": ["philsci"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philsci": 5}, "tags": []},
-    {"id": "bio-phil", "name": "Biology & Philosophy", "publisher": "Springer", "issn": ["0169-3867", "1572-8404"], "rss": "https://link.springer.com/search.rss?facet-journal-id=10539&query=&facet-content-type=Article", "modes": ["philsci"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philsci": 7}, "tags": []},
-    {"id": "jgps", "name": "Journal for General Philosophy of Science", "publisher": "Springer", "issn": ["0925-4560", "1572-8587"], "rss": "https://link.springer.com/search.rss?facet-journal-id=10838&query=&facet-content-type=Article", "modes": ["philsci"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philsci": 8}, "tags": []},
-    {"id": "found-phys", "name": "Foundations of Physics", "publisher": "Springer", "issn": ["0015-9018", "1572-9516"], "rss": "https://link.springer.com/search.rss?facet-journal-id=10701&query=&facet-content-type=Article", "modes": ["philsci"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philsci": 9}, "tags": ["applied-adjacent"]},
-    {"id": "persp-sci", "name": "Perspectives on Science", "publisher": "MIT Press", "issn": ["1063-6145", "1530-9274"], "rss": null, "modes": ["philsci"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philsci": 10}, "tags": ["applied-adjacent"]},
-    {"id": "phil-tech", "name": "Philosophy & Technology", "publisher": "Springer", "issn": ["2210-5433", "2210-5441"], "rss": "https://link.springer.com/search.rss?facet-journal-id=13347&query=&facet-content-type=Article", "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 1}, "tags": []},
-    {"id": "minds-machines", "name": "Minds and Machines", "publisher": "Springer", "issn": ["0924-6495", "1572-8641"], "rss": "https://link.springer.com/search.rss?facet-journal-id=11023&query=&facet-content-type=Article", "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 2}, "tags": []},
-    {"id": "eit", "name": "Ethics and Information Technology", "publisher": "Springer", "issn": ["1388-1957", "1572-8439"], "rss": "https://link.springer.com/search.rss?facet-journal-id=10676&query=&facet-content-type=Article", "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 3}, "tags": []},
-    {"id": "see", "name": "Science and Engineering Ethics", "publisher": "Springer", "issn": ["1353-3452", "1471-5546"], "rss": "https://link.springer.com/search.rss?facet-journal-id=11948&query=&facet-content-type=Article", "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 4}, "tags": []},
-    {"id": "ai-soc", "name": "AI & Society", "publisher": "Springer", "issn": ["0951-5666", "1435-5655"], "rss": "https://link.springer.com/search.rss?facet-journal-id=146&query=&facet-content-type=Article", "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 5}, "tags": ["high-volume"]},
-    {"id": "ai-ethics", "name": "AI and Ethics", "publisher": "Springer", "issn": ["2730-5953", "2730-5961"], "rss": "https://link.springer.com/search.rss?facet-journal-id=43681&query=&facet-content-type=Article", "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 6}, "tags": ["high-volume", "launched-2021"]},
-    {"id": "bds", "name": "Big Data & Society", "publisher": "Sage", "issn": ["2053-9517"], "rss": "https://journals.sagepub.com/action/showFeed?ui=0&mi=0&ai=2b4&jc=bds&type=etoc&feed=rss", "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 7}, "tags": ["applied-adjacent", "open-access"]},
-    {"id": "techne", "name": "Techné: Research in Philosophy and Technology", "publisher": "Philosophy Documentation Center", "issn": ["1091-8264"], "rss": null, "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 8}, "tags": []},
-    {"id": "dig-soc", "name": "Digital Society", "publisher": "Springer", "issn": ["2731-4650", "2731-4669"], "rss": "https://link.springer.com/search.rss?facet-journal-id=44206&query=&facet-content-type=Article", "modes": ["philtech"], "tier": "std", "backfill_from": "2021-07-01", "active": true, "rankings": {}, "mode_rank": {"philtech": 9}, "tags": ["launched-2022"]}
-  ]
+  "rankings": {
+   "db_pca": {
+    "label": "de Bruin 2023 (PCA meta-ranking)",
+    "description": "Principal-component aggregation of Leiter 2018, SJR, CiteScore, h5-index and JNCI rankings. The paper's headline ordering. Canonical default for Philosopheed.",
+    "source": "de Bruin, B. (2023). Ranking philosophy journals: a meta-ranking and a new survey ranking. Synthese 202:188.",
+    "url": "https://doi.org/10.1007/s11229-023-04342-9"
+   },
+   "db_am": {
+    "label": "de Bruin 2023 (arithmetic-mean variant)",
+    "description": "Same paper, arithmetic-mean aggregation. Kept as secondary data.",
+    "source": "de Bruin, B. (2023). Synthese 202:188.",
+    "url": "https://doi.org/10.1007/s11229-023-04342-9"
+   },
+   "leiter": {
+    "label": "Leiter 2022 poll",
+    "description": "Best 'general' philosophy journals 2022 — pairwise-comparison reader poll on Leiter Reports (~1,000 participants, ~90,000 votes). Ties share a rank.",
+    "source": "Leiter Reports, 25 July 2022.",
+    "url": "https://leiterreports.com/2022/07/25/best-general-philosophy-journals-2022/"
+   },
+   "leiter_mp": {
+    "label": "Leiter 2022 moral/political specialist poll",
+    "description": "Specialist journals publishing the best moral and/or political philosophy — Condorcet reader poll (329 votes). Book-series entries (Oxford Studies) excluded here.",
+    "source": "Leiter Reports, 4 August 2022.",
+    "url": "https://leiterreports.com/2022/08/04/specialist-journals-that-publish-the-best-articles-in-moral-and-or-political-philosophy-the-results/"
+   }
+  },
+  "modes": {
+   "general": {
+    "label": "General philosophy",
+    "basis": "de Bruin (2023) meta-ranking; toggle to Leiter 2022 poll"
+   },
+   "ethics": {
+    "label": "Ethics & political",
+    "basis": "Leiter 2022 moral/political specialist poll + field consensus"
+   },
+   "philsci": {
+    "label": "Philosophy of science",
+    "basis": "Curated: field consensus (no Leiter specialist poll exists)"
+   },
+   "philtech": {
+    "label": "Technology & AI",
+    "basis": "Curated: Philosophers' Cocoon 2026 tiering + field consensus"
+   }
+  }
+ },
+ "journals": [
+  {
+   "id": "nous",
+   "name": "Noûs",
+   "publisher": "Wiley",
+   "issn": [
+    "0029-4624",
+    "1468-0068"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/14680068/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 1,
+    "db_am": 1,
+    "leiter": 2
+   },
+   "tags": [],
+   "color": "#2E4C8A"
+  },
+  {
+   "id": "phil-studies",
+   "name": "Philosophical Studies",
+   "publisher": "Springer",
+   "issn": [
+    "0031-8116",
+    "1573-0883"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=11098&query=&facet-content-type=Article",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 2,
+    "db_am": 5,
+    "leiter": 7
+   },
+   "tags": [],
+   "color": "#00cbcc"
+  },
+  {
+   "id": "ppr",
+   "name": "Philosophy and Phenomenological Research",
+   "publisher": "Wiley",
+   "issn": [
+    "0031-8205",
+    "1933-1592"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/19331592/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 3,
+    "db_am": 3,
+    "leiter": 3
+   },
+   "tags": [],
+   "color": "#097a3b"
+  },
+  {
+   "id": "synthese",
+   "name": "Synthese",
+   "publisher": "Springer",
+   "issn": [
+    "0039-7857",
+    "1573-0964"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=11229&query=&facet-content-type=Article",
+   "modes": [
+    "general",
+    "philsci"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 4,
+    "db_am": 4,
+    "leiter": 11
+   },
+   "mode_rank": {
+    "philsci": 3
+   },
+   "tags": [
+    "high-volume"
+   ],
+   "color": "#1A4F9C"
+  },
+  {
+   "id": "mind",
+   "name": "Mind",
+   "publisher": "Oxford University Press",
+   "issn": [
+    "0026-4423",
+    "1460-2113"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 5,
+    "db_am": 2,
+    "leiter": 4
+   },
+   "tags": [],
+   "color": "#1E5631"
+  },
+  {
+   "id": "ajp",
+   "name": "Australasian Journal of Philosophy",
+   "publisher": "Taylor & Francis",
+   "issn": [
+    "0004-8402",
+    "1471-6828"
+   ],
+   "rss": "https://www.tandfonline.com/feed/rss/rajp20",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 6,
+    "db_am": 7,
+    "leiter": 6
+   },
+   "tags": [],
+   "color": "#0c6f78"
+  },
+  {
+   "id": "phil-review",
+   "name": "Philosophical Review",
+   "publisher": "Duke University Press",
+   "issn": [
+    "0031-8108",
+    "1558-1470"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 7,
+    "db_am": 6,
+    "leiter": 1
+   },
+   "tags": [],
+   "color": "#B31B1B"
+  },
+  {
+   "id": "jphil",
+   "name": "Journal of Philosophy",
+   "publisher": "Journal of Philosophy, Inc.",
+   "issn": [
+    "0022-362X",
+    "1939-8549"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 8,
+    "db_am": 8,
+    "leiter": 5
+   },
+   "tags": [],
+   "color": "#3A5A7A"
+  },
+  {
+   "id": "ppq",
+   "name": "Pacific Philosophical Quarterly",
+   "publisher": "Wiley",
+   "issn": [
+    "0279-0750",
+    "1468-0114"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/14680114/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 9,
+    "db_am": 10,
+    "leiter": 16
+   },
+   "tags": [],
+   "color": "#097e67"
+  },
+  {
+   "id": "erkenntnis",
+   "name": "Erkenntnis",
+   "publisher": "Springer",
+   "issn": [
+    "0165-0106",
+    "1572-8420"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=10670&query=&facet-content-type=Article",
+   "modes": [
+    "general",
+    "philsci"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 10,
+    "db_am": 12,
+    "leiter": 14
+   },
+   "mode_rank": {
+    "philsci": 6
+   },
+   "tags": [],
+   "color": "#88c972"
+  },
+  {
+   "id": "pq",
+   "name": "Philosophical Quarterly",
+   "publisher": "Oxford University Press",
+   "issn": [
+    "0031-8094",
+    "1467-9213"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 11,
+    "db_am": 9,
+    "leiter": 9
+   },
+   "tags": [],
+   "color": "#10275E"
+  },
+  {
+   "id": "ejp",
+   "name": "European Journal of Philosophy",
+   "publisher": "Wiley",
+   "issn": [
+    "0966-8373",
+    "1468-0378"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/14680378/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 12,
+    "db_am": 11,
+    "leiter": 16
+   },
+   "tags": [],
+   "color": "#0c89a3"
+  },
+  {
+   "id": "cjp",
+   "name": "Canadian Journal of Philosophy",
+   "publisher": "Cambridge University Press",
+   "issn": [
+    "0045-5091",
+    "1911-0820"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 13,
+    "db_am": 14,
+    "leiter": 12
+   },
+   "tags": [],
+   "color": "#0c5680"
+  },
+  {
+   "id": "phil-issues",
+   "name": "Philosophical Issues",
+   "publisher": "Wiley",
+   "issn": [
+    "1533-6077",
+    "1758-2237"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/17582237/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 14,
+    "db_am": 13,
+    "leiter": 24
+   },
+   "tags": [
+    "annual"
+   ],
+   "color": "#093e7a"
+  },
+  {
+   "id": "inquiry",
+   "name": "Inquiry",
+   "publisher": "Taylor & Francis",
+   "issn": [
+    "0020-174X",
+    "1502-3923"
+   ],
+   "rss": "https://www.tandfonline.com/feed/rss/sinq20",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 15,
+    "db_am": 15,
+    "leiter": 20
+   },
+   "tags": [],
+   "color": "#0e5086"
+  },
+  {
+   "id": "japa",
+   "name": "Journal of the American Philosophical Association",
+   "publisher": "Cambridge University Press",
+   "issn": [
+    "2053-4477",
+    "2053-4485"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 16,
+    "db_am": 16,
+    "leiter": 19
+   },
+   "tags": [
+    "launched-2015"
+   ],
+   "color": "#1038a6"
+  },
+  {
+   "id": "phil-imprint",
+   "name": "Philosophers' Imprint",
+   "publisher": "Michigan Publishing",
+   "issn": [
+    "1533-628X"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 17,
+    "db_am": 17,
+    "leiter": 8
+   },
+   "tags": [
+    "open-access"
+   ],
+   "color": "#004784"
+  },
+  {
+   "id": "analysis",
+   "name": "Analysis",
+   "publisher": "Oxford University Press",
+   "issn": [
+    "0003-2638",
+    "1467-8284"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 18,
+    "db_am": 18,
+    "leiter": 10
+   },
+   "tags": [],
+   "color": "#1D4E9C"
+  },
+  {
+   "id": "apq",
+   "name": "American Philosophical Quarterly",
+   "publisher": "University of Illinois Press",
+   "issn": [
+    "0003-0481",
+    "2152-1123"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 19,
+    "db_am": 19,
+    "leiter": 18
+   },
+   "tags": [],
+   "color": "#244B8F"
+  },
+  {
+   "id": "ratio",
+   "name": "Ratio",
+   "publisher": "Wiley",
+   "issn": [
+    "0034-0006",
+    "1467-9329"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/14679329/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 20,
+    "db_am": 20,
+    "leiter": 25
+   },
+   "tags": [],
+   "color": "#09157e"
+  },
+  {
+   "id": "metaphilosophy",
+   "name": "Metaphilosophy",
+   "publisher": "Wiley",
+   "issn": [
+    "0026-1068",
+    "1467-9973"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/14679973/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 21,
+    "db_am": 21
+   },
+   "tags": [],
+   "color": "#350ca3"
+  },
+  {
+   "id": "sjp",
+   "name": "Southern Journal of Philosophy",
+   "publisher": "Wiley",
+   "issn": [
+    "0038-4283",
+    "2041-6962"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/20416962/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 22,
+    "db_am": 22
+   },
+   "tags": [],
+   "color": "#51097a"
+  },
+  {
+   "id": "res-phil",
+   "name": "Res Philosophica",
+   "publisher": "Philosophy Documentation Center",
+   "issn": [
+    "2168-9105"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 23,
+    "db_am": 24
+   },
+   "tags": [],
+   "color": "#681c27"
+  },
+  {
+   "id": "dialectica",
+   "name": "Dialectica",
+   "publisher": "philosophie.ch",
+   "issn": [
+    "0012-2017",
+    "1746-8361"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 24,
+    "db_am": 23
+   },
+   "tags": [
+    "open-access"
+   ],
+   "color": "#2B6CB0"
+  },
+  {
+   "id": "philosophia",
+   "name": "Philosophia",
+   "publisher": "Springer",
+   "issn": [
+    "0048-3893",
+    "1574-9274"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=11406&query=&facet-content-type=Article",
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 25,
+    "db_am": 25
+   },
+   "tags": [],
+   "color": "#ff8409"
+  },
+  {
+   "id": "thought",
+   "name": "Thought: A Journal of Philosophy",
+   "publisher": "Philosophy Documentation Center",
+   "issn": [
+    "2161-2234"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 26,
+    "db_am": 26,
+    "leiter": 23
+   },
+   "tags": [],
+   "color": "#916908"
+  },
+  {
+   "id": "philosophy",
+   "name": "Philosophy",
+   "publisher": "Cambridge University Press",
+   "issn": [
+    "0031-8191",
+    "1469-817X"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 27,
+    "db_am": 27
+   },
+   "tags": [],
+   "color": "#2513cb"
+  },
+  {
+   "id": "ipq",
+   "name": "International Philosophical Quarterly",
+   "publisher": "Philosophy Documentation Center",
+   "issn": [
+    "0019-0365"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 28,
+    "db_am": 29
+   },
+   "tags": [],
+   "color": "#aab70b"
+  },
+  {
+   "id": "rev-metaphysics",
+   "name": "Review of Metaphysics",
+   "publisher": "Philosophy Education Society / Project MUSE",
+   "issn": [
+    "0034-6632",
+    "2154-1302"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "db_pca": 29,
+    "db_am": 28
+   },
+   "tags": [],
+   "color": "#6e2f1e"
+  },
+  {
+   "id": "pas",
+   "name": "Proceedings of the Aristotelian Society",
+   "publisher": "Oxford University Press",
+   "issn": [
+    "0066-7374",
+    "1467-9264"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "leiter": 12
+   },
+   "tags": [
+    "invited"
+   ],
+   "color": "#6E2033"
+  },
+  {
+   "id": "ergo",
+   "name": "Ergo",
+   "publisher": "University of Michigan Library",
+   "issn": [
+    "2330-4014"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "leiter": 14
+   },
+   "tags": [
+    "open-access",
+    "launched-2013"
+   ],
+   "color": "#001a9b"
+  },
+  {
+   "id": "phil-perspectives",
+   "name": "Philosophical Perspectives",
+   "publisher": "Wiley",
+   "issn": [
+    "1520-8583"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/15208583/most-recent",
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter": 21
+   },
+   "tags": [
+    "annual"
+   ],
+   "color": "#7e097d"
+  },
+  {
+   "id": "monist",
+   "name": "The Monist",
+   "publisher": "Oxford University Press",
+   "issn": [
+    "0026-9662",
+    "2153-3601"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter": 22
+   },
+   "tags": [],
+   "color": "#7B1E2B"
+  },
+  {
+   "id": "phil-topics",
+   "name": "Philosophical Topics",
+   "publisher": "Philosophy Documentation Center",
+   "issn": [
+    "0276-2080"
+   ],
+   "rss": null,
+   "modes": [
+    "general"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter": 25
+   },
+   "tags": [],
+   "color": "#81de0d"
+  },
+  {
+   "id": "ethics",
+   "name": "Ethics",
+   "publisher": "University of Chicago Press",
+   "issn": [
+    "0014-1704",
+    "1539-297X"
+   ],
+   "rss": "https://www.journals.uchicago.edu/action/showFeed?type=etoc&feed=rss&jc=et",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 1
+   },
+   "mode_rank": {
+    "ethics": 1
+   },
+   "tags": [],
+   "color": "#71131e"
+  },
+  {
+   "id": "ppa",
+   "name": "Philosophy & Public Affairs",
+   "publisher": "Wiley",
+   "issn": [
+    "0048-3915",
+    "1088-4963"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/10884963/most-recent",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 2
+   },
+   "mode_rank": {
+    "ethics": 2
+   },
+   "tags": [],
+   "notes": "Editorial board resigned 2024 and founded Free & Equal; journal continues under Wiley.",
+   "color": "#1F5FA8"
+  },
+  {
+   "id": "jpp",
+   "name": "Journal of Political Philosophy",
+   "publisher": "Wiley",
+   "issn": [
+    "0963-8016",
+    "1467-9760"
+   ],
+   "rss": null,
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": false,
+   "rankings": {
+    "leiter_mp": 3
+   },
+   "mode_rank": {
+    "ethics": 3
+   },
+   "tags": [
+    "ceased-2026"
+   ],
+   "notes": "Ceased 1 Jan 2026 after editor/board resignation. Successor: Political Philosophy (OLH).",
+   "color": "#a30c6c"
+  },
+  {
+   "id": "jmp",
+   "name": "Journal of Moral Philosophy",
+   "publisher": "Brill",
+   "issn": [
+    "1740-4681",
+    "1745-5243"
+   ],
+   "rss": null,
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 4
+   },
+   "mode_rank": {
+    "ethics": 4
+   },
+   "tags": [],
+   "color": "#A8232F"
+  },
+  {
+   "id": "utilitas",
+   "name": "Utilitas",
+   "publisher": "Cambridge University Press",
+   "issn": [
+    "0953-8208",
+    "1741-6183"
+   ],
+   "rss": null,
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 5
+   },
+   "mode_rank": {
+    "ethics": 5
+   },
+   "tags": [],
+   "color": "#420c80"
+  },
+  {
+   "id": "econ-phil",
+   "name": "Economics & Philosophy",
+   "publisher": "Cambridge University Press",
+   "issn": [
+    "0266-2671",
+    "1474-0028"
+   ],
+   "rss": null,
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 6
+   },
+   "mode_rank": {
+    "ethics": 6
+   },
+   "tags": [],
+   "color": "#8c10a6"
+  },
+  {
+   "id": "jesp",
+   "name": "Journal of Ethics and Social Philosophy",
+   "publisher": "University of Southern California",
+   "issn": [
+    "1559-3061"
+   ],
+   "rss": "https://www.jesp.org/feed.xml",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 7
+   },
+   "mode_rank": {
+    "ethics": 7
+   },
+   "tags": [
+    "open-access"
+   ],
+   "color": "#990000"
+  },
+  {
+   "id": "ppe",
+   "name": "Politics, Philosophy & Economics",
+   "publisher": "Sage",
+   "issn": [
+    "1470-594X",
+    "1741-3060"
+   ],
+   "rss": "https://journals.sagepub.com/action/showFeed?ui=0&mi=0&ai=2b4&jc=ppe&type=etoc&feed=rss",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 8
+   },
+   "mode_rank": {
+    "ethics": 8
+   },
+   "tags": [],
+   "color": "#55317c"
+  },
+  {
+   "id": "j-ethics",
+   "name": "The Journal of Ethics",
+   "publisher": "Springer",
+   "issn": [
+    "1382-4554",
+    "1572-8609"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=10892&query=&facet-content-type=Article",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 12
+   },
+   "mode_rank": {
+    "ethics": 9
+   },
+   "tags": [],
+   "color": "#ffc109"
+  },
+  {
+   "id": "etmp",
+   "name": "Ethical Theory and Moral Practice",
+   "publisher": "Springer",
+   "issn": [
+    "1386-2820",
+    "1572-8447"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=10677&query=&facet-content-type=Article",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 13
+   },
+   "mode_rank": {
+    "ethics": 10
+   },
+   "tags": [],
+   "color": "#8872c9"
+  },
+  {
+   "id": "jap",
+   "name": "Journal of Applied Philosophy",
+   "publisher": "Wiley",
+   "issn": [
+    "0264-3758",
+    "1468-5930"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/14685930/most-recent",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {
+    "leiter_mp": 15
+   },
+   "mode_rank": {
+    "ethics": 11
+   },
+   "tags": [],
+   "color": "#7a0927"
+  },
+  {
+   "id": "pol-phil",
+   "name": "Political Philosophy",
+   "publisher": "Open Library of Humanities",
+   "issn": [
+    "3033-3830"
+   ],
+   "rss": null,
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "ethics": 12
+   },
+   "tags": [
+    "open-access",
+    "launched-2024"
+   ],
+   "notes": "Successor to Journal of Political Philosophy (Goodin et al.).",
+   "color": "#218079"
+  },
+  {
+   "id": "free-equal",
+   "name": "Free & Equal",
+   "publisher": "Open Library of Humanities",
+   "issn": [
+    "2977-5930"
+   ],
+   "rss": null,
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "ethics": 13
+   },
+   "tags": [
+    "open-access",
+    "launched-2024"
+   ],
+   "notes": "Founded by the resigned Philosophy & Public Affairs editorial board.",
+   "color": "#297ea1"
+  },
+  {
+   "id": "bioethics",
+   "name": "Bioethics",
+   "publisher": "Wiley",
+   "issn": [
+    "0269-9702",
+    "1467-8519"
+   ],
+   "rss": "https://onlinelibrary.wiley.com/feed/14678519/most-recent",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "ethics": 14
+   },
+   "tags": [
+    "applied-adjacent"
+   ],
+   "color": "#7e1509"
+  },
+  {
+   "id": "jme",
+   "name": "Journal of Medical Ethics",
+   "publisher": "BMJ",
+   "issn": [
+    "0306-6800",
+    "1473-4257"
+   ],
+   "rss": "https://jme.bmj.com/rss/current.xml",
+   "modes": [
+    "ethics"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "ethics": 15
+   },
+   "tags": [
+    "applied-adjacent",
+    "high-volume"
+   ],
+   "color": "#2E5090"
+  },
+  {
+   "id": "bjps",
+   "name": "British Journal for the Philosophy of Science",
+   "publisher": "University of Chicago Press",
+   "issn": [
+    "0007-0882",
+    "1464-3537"
+   ],
+   "rss": "https://www.journals.uchicago.edu/action/showFeed?type=etoc&feed=rss&jc=bjps",
+   "modes": [
+    "philsci"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philsci": 1
+   },
+   "tags": [],
+   "notes": "Moved OUP→Chicago in 2021.",
+   "color": "#792d15"
+  },
+  {
+   "id": "phil-sci",
+   "name": "Philosophy of Science",
+   "publisher": "Cambridge University Press",
+   "issn": [
+    "0031-8248",
+    "1539-767X"
+   ],
+   "rss": null,
+   "modes": [
+    "philsci"
+   ],
+   "tier": "deep",
+   "backfill_from": "2000-01-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philsci": 2
+   },
+   "tags": [],
+   "notes": "Moved Chicago→Cambridge in 2023.",
+   "color": "#cb13a7"
+  },
+  {
+   "id": "shps",
+   "name": "Studies in History and Philosophy of Science",
+   "publisher": "Elsevier",
+   "issn": [
+    "0039-3681",
+    "1879-2510"
+   ],
+   "rss": "https://rss.sciencedirect.com/publication/science/00393681",
+   "modes": [
+    "philsci"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philsci": 4
+   },
+   "tags": [],
+   "notes": "Absorbed Parts B and C in 2021.",
+   "color": "#E9711C"
+  },
+  {
+   "id": "ejps",
+   "name": "European Journal for Philosophy of Science",
+   "publisher": "Springer",
+   "issn": [
+    "1879-4912",
+    "1879-4920"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=13194&query=&facet-content-type=Article",
+   "modes": [
+    "philsci"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philsci": 5
+   },
+   "tags": [],
+   "color": "#00238e"
+  },
+  {
+   "id": "bio-phil",
+   "name": "Biology & Philosophy",
+   "publisher": "Springer",
+   "issn": [
+    "0169-3867",
+    "1572-8404"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=10539&query=&facet-content-type=Article",
+   "modes": [
+    "philsci"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philsci": 7
+   },
+   "tags": [],
+   "color": "#2243aa"
+  },
+  {
+   "id": "jgps",
+   "name": "Journal for General Philosophy of Science",
+   "publisher": "Springer",
+   "issn": [
+    "0925-4560",
+    "1572-8587"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=10838&query=&facet-content-type=Article",
+   "modes": [
+    "philsci"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philsci": 8
+   },
+   "tags": [],
+   "color": "#e6ff31"
+  },
+  {
+   "id": "found-phys",
+   "name": "Foundations of Physics",
+   "publisher": "Springer",
+   "issn": [
+    "0015-9018",
+    "1572-9516"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=10701&query=&facet-content-type=Article",
+   "modes": [
+    "philsci"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philsci": 9
+   },
+   "tags": [
+    "applied-adjacent"
+   ],
+   "color": "#004284"
+  },
+  {
+   "id": "persp-sci",
+   "name": "Perspectives on Science",
+   "publisher": "MIT Press",
+   "issn": [
+    "1063-6145",
+    "1530-9274"
+   ],
+   "rss": null,
+   "modes": [
+    "philsci"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philsci": 10
+   },
+   "tags": [
+    "applied-adjacent"
+   ],
+   "color": "#A31F34"
+  },
+  {
+   "id": "phil-tech",
+   "name": "Philosophy & Technology",
+   "publisher": "Springer",
+   "issn": [
+    "2210-5433",
+    "2210-5441"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=13347&query=&facet-content-type=Article",
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 1
+   },
+   "tags": [],
+   "color": "#00138e"
+  },
+  {
+   "id": "minds-machines",
+   "name": "Minds and Machines",
+   "publisher": "Springer",
+   "issn": [
+    "0924-6495",
+    "1572-8641"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=11023&query=&facet-content-type=Article",
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 2
+   },
+   "tags": [],
+   "color": "#cc0032"
+  },
+  {
+   "id": "eit",
+   "name": "Ethics and Information Technology",
+   "publisher": "Springer",
+   "issn": [
+    "1388-1957",
+    "1572-8439"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=10676&query=&facet-content-type=Article",
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 3
+   },
+   "tags": [],
+   "color": "#ff3265"
+  },
+  {
+   "id": "see",
+   "name": "Science and Engineering Ethics",
+   "publisher": "Springer",
+   "issn": [
+    "1353-3452",
+    "1471-5546"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=11948&query=&facet-content-type=Article",
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 4
+   },
+   "tags": [],
+   "color": "#172f77"
+  },
+  {
+   "id": "ai-soc",
+   "name": "AI & Society",
+   "publisher": "Springer",
+   "issn": [
+    "0951-5666",
+    "1435-5655"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=146&query=&facet-content-type=Article",
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 5
+   },
+   "tags": [
+    "high-volume"
+   ],
+   "color": "#ffe431"
+  },
+  {
+   "id": "ai-ethics",
+   "name": "AI and Ethics",
+   "publisher": "Springer",
+   "issn": [
+    "2730-5953",
+    "2730-5961"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=43681&query=&facet-content-type=Article",
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 6
+   },
+   "tags": [
+    "high-volume",
+    "launched-2021"
+   ],
+   "color": "#cc6600"
+  },
+  {
+   "id": "bds",
+   "name": "Big Data & Society",
+   "publisher": "Sage",
+   "issn": [
+    "2053-9517"
+   ],
+   "rss": "https://journals.sagepub.com/action/showFeed?ui=0&mi=0&ai=2b4&jc=bds&type=etoc&feed=rss",
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 7
+   },
+   "tags": [
+    "applied-adjacent",
+    "open-access"
+   ],
+   "color": "#8c3d9a"
+  },
+  {
+   "id": "techne",
+   "name": "Techné: Research in Philosophy and Technology",
+   "publisher": "Philosophy Documentation Center",
+   "issn": [
+    "1091-8264"
+   ],
+   "rss": null,
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 8
+   },
+   "tags": [],
+   "color": "#229108"
+  },
+  {
+   "id": "dig-soc",
+   "name": "Digital Society",
+   "publisher": "Springer",
+   "issn": [
+    "2731-4650",
+    "2731-4669"
+   ],
+   "rss": "https://link.springer.com/search.rss?facet-journal-id=44206&query=&facet-content-type=Article",
+   "modes": [
+    "philtech"
+   ],
+   "tier": "std",
+   "backfill_from": "2021-07-01",
+   "active": true,
+   "rankings": {},
+   "mode_rank": {
+    "philtech": 9
+   },
+   "tags": [
+    "launched-2022"
+   ],
+   "color": "#7c3893"
+  }
+ ]
 }
