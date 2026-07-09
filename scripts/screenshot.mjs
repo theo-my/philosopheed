@@ -18,6 +18,11 @@ await page.goto(BASE, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/01-venue.png` }); // default view: book-style cards, light mode
 
+// journal card head close-up (desktop) — verifies the compacted card-top
+// padding and that "View all" now sits inline with the count, not stacked
+// directly above/over the sparkline
+await page.locator(".jcard").first().locator(".jhead").screenshot({ path: `${OUT}/01b-jcard-head-desktop.png` });
+
 // expand first journal card
 await page.locator(".jhead").first().click();
 await page.waitForTimeout(400);
@@ -44,6 +49,71 @@ await page.screenshot({ path: `${OUT}/04-topic.png` });
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/04b-topic-scrolled.png` });
 }
+
+// ---------------------------------------------------------------- all view --
+// flat, newest-first, cross-journal list — paperRow(r, true) journal-colour
+// accent (same treatment as the topic view), chunked/lazy rendering via
+// IntersectionObserver so it doesn't have to render everything up front.
+await page.locator('#view-seg button[data-v="all"]').click();
+await page.waitForTimeout(600);
+await page.screenshot({ path: `${OUT}/04c-all-12mo.png` });
+
+// scroll to trigger a couple of lazy-render chunks past the initial batch
+await page.mouse.wheel(0, 4000);
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${OUT}/04d-all-scrolled.png` });
+
+// regression check: "All" view on "Since 2000" (~tens of thousands of rows
+// across all journals) must not hang the tab — time the initial render and
+// confirm only a small chunk is in the DOM up front (lazy, not everything
+// at once), then scroll to pull in a few more chunks.
+{
+  await page.locator('#win-seg button[data-w="all"]').click();
+  const t0 = Date.now();
+  await page.waitForTimeout(4000); // same settle time the existing 09b since-2000 case uses
+  const elapsedMs = Date.now() - t0;
+  const rowCount = await page.locator(".allbody .paper").count();
+  const totalCount = await page.locator(".allcard .jcount b").innerText();
+  console.log(`All view / Since 2000: ${rowCount} paper rows in DOM after ${elapsedMs}ms settle (of ${totalCount} total in window) — lazy-rendered, not all at once`);
+  await page.screenshot({ path: `${OUT}/04e-all-since2000.png` });
+  await page.mouse.wheel(0, 6000);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/04f-all-since2000-scrolled.png` });
+}
+
+// back to venue + 12mo for the rest of the desktop shots
+await page.locator('#win-seg button[data-w="365"]').click();
+await page.waitForTimeout(800);
+await page.locator('#view-seg button[data-v="venue"]').click();
+await page.waitForTimeout(400);
+
+// ------------------------------------------------------------- 7d preset --
+await page.locator('#win-seg button[data-w="7"]').click();
+await page.waitForTimeout(600);
+await page.screenshot({ path: `${OUT}/04g-7d-window.png` });
+
+// -------------------------------------------------------- custom window --
+// open the inline picker, apply a short custom window (3 weeks — no
+// partial-data note expected), then a long one (10 years — past 5 years,
+// partial-data note expected). Label on the seg button itself should update.
+await page.locator("#win-custom").click();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${OUT}/04h-custom-picker-open.png` }); // inline UI visible, defaults (3 weeks)
+await page.fill("#custom-n", "3");
+await page.selectOption("#custom-unit", "weeks");
+await page.locator("#custom-apply").click();
+await page.waitForTimeout(600);
+await page.screenshot({ path: `${OUT}/04i-custom-3weeks-applied.png` }); // seg button label -> "Custom: 3 weeks", no coverage note
+
+await page.fill("#custom-n", "10");
+await page.selectOption("#custom-unit", "years");
+await page.locator("#custom-apply").click();
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${OUT}/04j-custom-10years-coverage-note.png` }); // partial-data note should now show
+
+// revert to the default window for the remaining desktop shots
+await page.locator('#win-seg button[data-w="365"]').click();
+await page.waitForTimeout(600);
 
 // leiter ranking toggle (back on venue)
 await page.locator('#view-seg button[data-v="venue"]').click();
@@ -330,6 +400,25 @@ await mp.goto(BASE, { waitUntil: "networkidle" });
 await mp.waitForTimeout(800);
 await mp.screenshot({ path: `${OUT}/m01-venue-portrait.png` }); // single-column cards, header wraps
 
+// header close-up (portrait) — compacted chrome, no horizontal overflow;
+// view selector ("All" now present) + window controls (7d/Custom… now
+// present) must still be reachable (wrapped), not cut off
+await mp.locator("header.site").screenshot({ path: `${OUT}/m01a-header-portrait.png` });
+// journal card head close-up (portrait) — compacted card top, "View all"
+// inline with the count rather than stacked over the sparkline
+await mp.locator(".jcard").first().locator(".jhead").screenshot({ path: `${OUT}/m01b-jcard-head-portrait.png` });
+{
+  const overflowPortrait = await mp.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  console.log(`portrait horizontal overflow: ${overflowPortrait}px (should be <=0)`);
+}
+
+// "All" view on a phone (single-column, chunked/lazy-rendered flat list)
+await mp.locator('#view-seg button[data-v="all"]').click();
+await mp.waitForTimeout(600);
+await mp.screenshot({ path: `${OUT}/m01c-all-portrait.png` });
+await mp.locator('#view-seg button[data-v="venue"]').click();
+await mp.waitForTimeout(400);
+
 await mp.locator("#btn-display").click();
 await mp.waitForTimeout(300);
 await mp.screenshot({ path: `${OUT}/m02-display-popover.png` }); // bottom-sheet, must fit on screen
@@ -427,6 +516,14 @@ ml.on("pageerror", (e) => mobileErrors.push(`[landscape] ${e}`));
 await ml.goto(BASE, { waitUntil: "networkidle" });
 await ml.waitForTimeout(800);
 await ml.screenshot({ path: `${OUT}/m13-venue-landscape.png` });
+
+// header close-up (landscape) — the tightest case: only 390px of *height*
+// to work with, so the compacted header must not eat most of the screen
+await ml.locator("header.site").screenshot({ path: `${OUT}/m13a-header-landscape.png` });
+{
+  const overflowLandscape = await ml.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  console.log(`landscape horizontal overflow: ${overflowLandscape}px (should be <=0)`);
+}
 
 await ml.locator("#btn-3d").click();
 await ml.waitForTimeout(2500);

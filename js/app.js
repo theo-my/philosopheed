@@ -8,11 +8,14 @@ const S = {
   recent: null,          // recent.json rows
   yearCache: new Map(),  // year -> rows
   mode: "general",
-  view: "venue",         // venue | topic
+  view: "venue",         // venue | topic | all
   ranking: "db",         // db | leiter (general mode only; irrelevant when rankMode is "favorites")
   rankMode: "normal",    // normal | favorites — "Favourites" is a ranking option layered on top of db/leiter/field
-  win: "365",            // '30'|'90'|'365'|'1826'|'year'
+  win: "365",            // '7'|'30'|'90'|'365'|'1826'|'all'|'year'|'custom'
   year: 2020,
+  customN: 3,             // "Custom…" window: amount + unit (last applied value)
+  customUnit: "weeks",    // days | weeks | months | years
+  customApplied: false,   // has the user ever pressed "Go" on the custom picker?
   query: "",
   rows: [],              // rows for current window (all modes)
   mini: null,            // MiniSearch instance over rows
@@ -183,6 +186,23 @@ async function stitchYears(years, cut) {
   return rows.sort((a, b) => b.published.localeCompare(a.published));
 }
 
+// "Custom…" window: an amount + unit (days/weeks/months/years) converted to
+// a day count. Approximate months/years as 30/365 days — good enough for a
+// browsing window, and keeps the maths identical to the fixed-day presets.
+const CUSTOM_UNIT_DAYS = { days: 1, weeks: 7, months: 30, years: 365 };
+const CUSTOM_UNIT_LABEL = { days: "day", weeks: "week", months: "month", years: "year" };
+const CUSTOM_MAX_YEARS = 26; // sane cap — matches the deep-tier archive's earliest year (2000)
+function customWindowDays() {
+  const unit = CUSTOM_UNIT_DAYS[S.customUnit] ? S.customUnit : "weeks";
+  const n = Number.isFinite(S.customN) && S.customN > 0 ? S.customN : 1;
+  return n * CUSTOM_UNIT_DAYS[unit];
+}
+function customWindowLabel() {
+  const unit = CUSTOM_UNIT_DAYS[S.customUnit] ? S.customUnit : "weeks";
+  const n = Number.isFinite(S.customN) && S.customN > 0 ? S.customN : 1;
+  return `${n} ${CUSTOM_UNIT_LABEL[unit]}${n === 1 ? "" : "s"}`;
+}
+
 async function rowsForWindow() {
   const today = new Date();
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -196,12 +216,13 @@ async function rowsForWindow() {
     for (let y = ARCHIVE_START_YEAR; y <= today.getFullYear(); y++) years.push(y);
     return stitchYears(years);
   }
-  const days = Number(S.win);
+  const days = S.win === "custom" ? customWindowDays() : Number(S.win);
   if (days <= 365) {
     const cut = iso(new Date(today - days * 864e5));
     return S.recent.filter((r) => r.published >= cut);
   }
-  // 5 years: stitch year files (newest first)
+  // beyond a year: stitch year files (newest first) — same path the 5-yr
+  // preset uses, shared by any custom window that runs past 365 days
   const cut = iso(new Date(today - days * 864e5));
   const y0 = Number(cut.slice(0, 4));
   const years = [];
@@ -358,8 +379,10 @@ function renderVenue(rows) {
       <div><div class="jname">${esc(j.name)} ${ceased}</div>
       <div class="jmeta">${esc(j.publisher)}</div></div>
       <div class="jright">
-      <button class="viewall" type="button" title="View the full list for this journal">View all</button>
+      <div class="jright-top">
       <span class="jcount"><b>${papers.length}</b> in window</span>
+      <button class="viewall" type="button" title="View the full list for this journal">View all</button>
+      </div>
       ${sparkline(j.id)}</div>`;
     head.querySelector(".viewall").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -490,6 +513,56 @@ function renderTopic(rows) {
     }
     root.append(card);
   }
+  return root;
+}
+
+// -------------------------------------------------------------- all view --
+// Every publication in the current mode + window as one flat, newest-first,
+// cross-journal list — same paperRow() treatment (and journal-colour accent
+// on the venue name) as the topic view uses. Volume info is deliberately
+// omitted (cross-journal, so volume separators don't make sense here).
+//
+// A 5-yr/Since-2000 window can carry ~25k rows; rendering them all at once
+// (the way the venue/topic "All N papers" expand button does) would freeze
+// the tab. Instead this renders in small chunks, appending the next chunk
+// only once an IntersectionObserver reports the trailing sentinel has
+// scrolled near the viewport — i.e. genuine lazy/incremental rendering, not
+// a "fake" progress bar. Only one observer is ever live; renderAll() and
+// refresh() both tear down the previous one before creating/rendering.
+const ALL_CHUNK = 120;
+let allViewObserver = null;
+function teardownAllView() {
+  if (allViewObserver) { allViewObserver.disconnect(); allViewObserver = null; }
+}
+function renderAll(rows) {
+  teardownAllView();
+  const root = el("div", "jcard tcard allcard");
+  const head = el("div", "jhead");
+  head.innerHTML = `<div><div class="jname">All papers</div></div>
+    <div class="jright"><span class="jcount"><b>${rows.length.toLocaleString()}</b> in window</span></div>`;
+  const body = el("div", "jbody allbody");
+  root.append(head, body);
+  if (!rows.length) {
+    body.append(el("div", "status", "No papers in this window."));
+    return root;
+  }
+  let loaded = 0;
+  const sentinel = el("div", "all-sentinel");
+  body.append(sentinel);
+  function loadMore() {
+    if (loaded >= rows.length) return;
+    const next = Math.min(loaded + ALL_CHUNK, rows.length);
+    const frag = document.createDocumentFragment();
+    for (let i = loaded; i < next; i++) frag.append(paperRow(rows[i], true));
+    body.insertBefore(frag, sentinel);
+    loaded = next;
+    if (loaded >= rows.length) { sentinel.remove(); teardownAllView(); }
+  }
+  loadMore(); // first chunk renders immediately, synchronously
+  allViewObserver = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) loadMore();
+  }, { rootMargin: "1000px 0px" });
+  allViewObserver.observe(sentinel);
   return root;
 }
 
@@ -630,6 +703,7 @@ function setStatus(msg) {
 
 async function refresh() {
   setStatus("Loading…");
+  teardownAllView(); // leaving/re-entering the All view — drop any live lazy-render observer
   const all = await rowsForWindow();
   const ids = new Set(modeJournals().map((j) => j.id));
   S.rows = all.filter((r) => ids.has(r.journal));
@@ -638,9 +712,11 @@ async function refresh() {
   c.innerHTML = "";
   if (S.query.length >= 2) c.append(renderSearch(S.rows));
   else if (S.view === "topic") c.append(renderTopic(S.rows));
+  else if (S.view === "all") c.append(renderAll(S.rows));
   else c.append(renderVenue(S.rows));
   const winLabel = S.win === "year" ? `year ${S.year}`
-    : { 30: "last 30 days", 90: "last 90 days", 365: "last 12 months", 1826: "last 5 years", all: "since 2000" }[S.win];
+    : S.win === "custom" ? `last ${customWindowLabel()}`
+    : { 7: "last 7 days", 30: "last 30 days", 90: "last 90 days", 365: "last 12 months", 1826: "last 5 years", all: "since 2000" }[S.win];
   $("#count-note").textContent =
     `${S.rows.length.toLocaleString()} papers · ${ids.size} journals · ${winLabel}`;
   $("#basis-note").textContent = S.mode === "general" ? "" : S.registry.meta.modes[S.mode].basis;
@@ -707,7 +783,8 @@ function initChrome() {
   const nowYear = new Date().getFullYear();
   const covNote = $("#cov-note");
   function updateCoverageNote() {
-    const beyond5 = S.win === "all" || (S.win === "year" && S.year <= nowYear - 5);
+    const beyond5 = S.win === "all" || (S.win === "year" && S.year <= nowYear - 5)
+      || (S.win === "custom" && customWindowDays() > 1826);
     covNote.textContent = beyond5
       ? "Data beyond 5 years is available for only some journals — the 26 deep-tier titles are backfilled to 2000; the rest cover roughly the last 5 years."
       : "";
@@ -720,9 +797,37 @@ function initChrome() {
       b.classList.add("on");
       S.win = b.dataset.w;
       $("#yearpick").classList.toggle("show", S.win === "year");
+      $("#custompick").classList.toggle("show", S.win === "custom");
       updateCoverageNote();
       refresh();
     }));
+
+  // custom time window: "last X <unit>" — small inline UI in the same style
+  // as the typed-year control. Applying (Enter, blur or "Go") validates to a
+  // positive integer, capped so the resulting window can't run past the
+  // archive's start year (2000), then updates the "Custom…" seg button's own
+  // label to reflect the applied value (e.g. "Custom: 3 weeks").
+  const customNInput = $("#custom-n");
+  const customUnitSelect = $("#custom-unit");
+  const customApplyBtn = $("#custom-apply");
+  const customSegBtn = $("#win-custom");
+  function applyCustom() {
+    let n = Math.round(Number(customNInput.value));
+    if (!Number.isFinite(n) || n < 1) n = 1;
+    const unit = CUSTOM_UNIT_DAYS[customUnitSelect.value] ? customUnitSelect.value : "weeks";
+    const maxN = Math.max(1, Math.floor((CUSTOM_MAX_YEARS * 365) / CUSTOM_UNIT_DAYS[unit]));
+    n = Math.min(n, maxN);
+    customNInput.value = n;
+    S.customN = n;
+    S.customUnit = unit;
+    S.customApplied = true;
+    customSegBtn.textContent = `Custom: ${customWindowLabel()}`;
+    if (S.win === "custom") { updateCoverageNote(); refresh(); }
+  }
+  customNInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyCustom(); } });
+  customNInput.addEventListener("blur", applyCustom);
+  customUnitSelect.addEventListener("change", applyCustom);
+  customApplyBtn.addEventListener("click", applyCustom);
 
   // typed-year control (replaces the old scrubber): Enter, blur or the "Go"
   // button apply the value, clamped to the archive range.

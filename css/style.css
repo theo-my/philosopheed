@@ -203,6 +203,21 @@ header.site {
   background: var(--surface); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums;
 }
 .yearpick input[type="number"]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+/* custom time window ("Custom…") — amount + unit, styled to match .yearpick */
+.custompick { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
+.custompick.show { display: inline-flex; }
+.custompick input[type="number"] {
+  width: 64px; padding: 5px 8px; border: 1px solid var(--baseline); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums;
+}
+.custompick select {
+  padding: 5px 8px; border: 1px solid var(--baseline); border-radius: 8px;
+  background: var(--surface); color: var(--ink); font: inherit;
+}
+.custompick input[type="number"]:focus, .custompick select:focus {
+  outline: 2px solid var(--accent); border-color: transparent;
+}
 .basis-note { color: var(--muted); font-size: 12.5px; }
 .count-note { color: var(--muted); font-size: 12.5px; margin-left: auto; }
 
@@ -243,7 +258,7 @@ body:not([data-cardstyle="basic"]) .tcard::before {
   pointer-events: none;
 }
 .jhead {
-  display: flex; align-items: center; gap: 12px; padding: 11px 15px 9px;
+  display: flex; align-items: center; gap: 10px; padding: 8px 15px 6px;
   user-select: none;
 }
 .rankbadge {
@@ -257,7 +272,12 @@ body:not([data-cardstyle="basic"]) .tcard::before {
 .jname { font-weight: 700; font-size: 16px; line-height: 1.25; font-family: var(--serif); }
 .jmeta { color: var(--muted); font-size: 12px; }
 .jceased { color: var(--muted); font-size: 11px; border: 1px solid var(--baseline); border-radius: 5px; padding: 0 5px; }
-.jright { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+/* .jright stacks two rows — [count + "View all"] then the sparkline below —
+   so "View all" sits inline next to the count instead of directly on top of
+   the sparkline (it used to stack as a 3rd row right above the graph, which
+   read as crowding/overlapping it on narrower cards). */
+.jright { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.jright-top { display: flex; align-items: center; gap: 8px; }
 .viewall {
   border: 1px solid var(--baseline); background: var(--surface); color: var(--ink-2);
   border-radius: 6px; padding: 2px 8px; font-size: 11px; white-space: nowrap;
@@ -330,6 +350,16 @@ body:not([data-cardstyle="basic"]) .tcard::before {
    same --card-max-h slider used for journal cards. */
 .tcard { margin-bottom: 16px; }
 .tcard .jname { font-size: 17px; }
+
+/* "All" view — every publication in the window as one flat, newest-first,
+   cross-journal list (same jcard/tcard book-spine + paperRow treatment as
+   the topic view, so it picks up card style / journal colour accents for
+   free). Deliberately NOT height-capped like venue/topic cards: this is
+   meant to be one continuous list browsed with the page scroll (which is
+   also what its IntersectionObserver lazy-render watches), not a small
+   internally-scrolling box — so --card-max-h is intentionally ignored here. */
+.allbody { max-height: none; overflow: visible; }
+.all-sentinel { height: 1px; }
 
 /* chips */
 .chip {
@@ -447,29 +477,50 @@ body.touch-device #btn-aim { display: inline-flex; }
 
 /* ---------------------------------------------------------------- mobile */
 @media (max-width: 640px) {
-  .wrap { padding: 0 14px; }
-  .site-row { gap: 8px; padding: 8px 0; }
+  html, body { max-width: 100vw; overflow-x: hidden; } /* belt-and-braces: no page-level horizontal scroll */
+  .wrap { padding: 0 12px; }
+  body { font-size: 13.5px; } /* base text/density — more fits per screen */
+  .site-row { gap: 6px; padding: 6px 0; }
   .brand { margin-right: 0; }
+  .brand h1 { font-size: 18px; } /* compact brand — was 23px, dominated the top row */
   /* segmented navs (mode, view, ranking, window) mustn't run off the edge
-     of a phone screen — wrap onto extra rows instead */
+     of a phone screen — wrap onto extra rows instead, packed tightly rather
+     than stretched to fill each row (stretching is what made e.g. a lone
+     wrapped "Year…" button balloon to full width) */
   .seg { flex-wrap: wrap; }
-  .seg button { flex: 1 1 auto; }
+  .seg button { flex: 0 1 auto; }
   .brand .tag { display: none; } /* header is crowded enough on a phone */
   .spacer { flex-basis: 100%; height: 0; } /* forces search + toggles onto their own row */
-  .searchbox { flex: 1 1 auto; min-width: 0; }
+  .searchbox { flex: 1 1 auto; min-width: 0; padding: 6px 10px; font-size: 13px; }
 
-  /* touch targets: keep primary controls close to the ~44px guideline */
-  .iconbtn, .seg button { padding: 11px 13px; min-height: 40px; }
-  .seg.small button { padding: 9px 11px; font-size: 13.5px; }
-  .rankbadge, .viewall { min-height: 32px; }
+  /* compact controls: still tappable (~34-36px) but no longer eating a whole
+     row each — Serif/Favourites/Display/3D/Dark mode/About and the view +
+     window segments now pack several per row instead of ~1-2 */
+  .iconbtn, .seg button { padding: 6px 10px; min-height: 34px; font-size: 12.5px; }
+  .seg.small button { padding: 5px 9px; font-size: 12px; min-height: 30px; }
+  .rankbadge, .viewall { min-height: 28px; }
 
-  .subrow { gap: 8px 10px; }
+  .subrow { gap: 6px 8px; padding: 6px 0 8px; }
   .subrow .label { flex-basis: 100%; height: 0; overflow: hidden; } /* stacked labels waste space on phones */
+  .yearpick input[type="number"], .custompick input[type="number"] { width: 60px; }
+
+  main { padding: 10px 0 60px; } /* reclaim vertical space the compacted header freed up */
 
   /* card grid: always single column, and never wider than the viewport —
      the card-width slider still works but can't force horizontal scrolling */
   .jgrid { grid-template-columns: 1fr !important; }
-  .jcard, .tcard { width: 100%; }
+  .jcard, .tcard { width: 100%; border-radius: 9px; }
+
+  /* denser cards: smaller heads/rows so more papers fit on screen at once */
+  .jhead { padding: 6px 12px 5px; gap: 8px; }
+  .jname, .tcard .jname { font-size: 14.5px; }
+  .jmeta { font-size: 11px; }
+  .jright, .jright-top { gap: 3px; }
+  .rankbadge { min-width: 28px; height: 28px; font-size: 13px; }
+  .jbody { padding: 2px 12px 8px; }
+  .paper { padding: 7px 4px; }
+  .ptitle { font-size: 13.5px; }
+  .pmeta { font-size: 11px; }
 
   /* feed-width presets: Narrow/Default/Wide/Max all collapse to "fill the
      screen" here — max-width simply can't exceed the viewport, so "Max"
@@ -503,5 +554,15 @@ body.touch-device #btn-aim { display: inline-flex; }
   .side-shelf-hint { top: 68%; font-size: 11.5px; }
   .three-panel { top: auto; bottom: 6px; right: 10px; left: auto; width: min(340px, 46vw); height: 82vh; padding: 10px 12px; }
   .aim-status { top: 44px; }
+
+  /* 2D header: in landscape the header was eating over half the (very
+     short) viewport before any content showed — squeeze rows/gaps further
+     still, on top of the 640px-width rules above. */
+  .site-row { gap: 4px; padding: 4px 0; }
+  .brand h1 { font-size: 15px; }
+  .iconbtn, .seg button { padding: 4px 8px; min-height: 27px; }
+  .seg.small button { padding: 4px 7px; min-height: 24px; }
+  .subrow { gap: 4px 6px; padding: 4px 0 6px; }
+  main { padding: 6px 0 40px; }
 }
 

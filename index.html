@@ -71,22 +71,36 @@
       <nav class="seg small" id="view-seg" aria-label="View">
         <button data-v="venue" class="on">By venue</button>
         <button data-v="topic">By topic</button>
+        <button data-v="all">All</button>
       </nav>
       <span class="label">Ranking</span>
       <nav class="seg small" id="rank-seg" aria-label="Ranking"></nav>
       <span class="label">Window</span>
       <nav class="seg small" id="win-seg" aria-label="Time window">
+        <button data-w="7">7 d</button>
         <button data-w="30">30 d</button>
         <button data-w="90">90 d</button>
         <button data-w="365" class="on">12 mo</button>
         <button data-w="1826">5 yr</button>
         <button data-w="all">Since 2000</button>
         <button data-w="year">Year…</button>
+        <button data-w="custom" id="win-custom">Custom…</button>
       </nav>
       <span class="yearpick" id="yearpick">
         <input type="number" id="yearinput" min="2000" max="2026" step="1" value="2020"
                inputmode="numeric" aria-label="Year (Enter applies)">
         <button class="iconbtn" id="yearapply" title="Show this year — Enter applies">Go</button>
+      </span>
+      <span class="custompick" id="custompick">
+        <input type="number" id="custom-n" min="1" step="1" value="3"
+               inputmode="numeric" aria-label="Custom window amount (Enter applies)">
+        <select id="custom-unit" aria-label="Custom window unit">
+          <option value="days">days</option>
+          <option value="weeks" selected>weeks</option>
+          <option value="months">months</option>
+          <option value="years">years</option>
+        </select>
+        <button class="iconbtn" id="custom-apply" title="Show the last X units — Enter applies">Go</button>
       </span>
       <span class="basis-note" id="basis-note"></span>
       <span class="count-note" id="count-note"></span>
