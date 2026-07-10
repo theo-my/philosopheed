@@ -20,7 +20,6 @@
         <h1>philoso<span class="feed">pheed</span></h1>
         <span class="tag">recent publications in philosophy</span>
       </div>
-      <nav class="seg" id="mode-seg" aria-label="Field mode"></nav>
       <div class="spacer"></div>
       <input class="searchbox" id="search" type="search"
              placeholder="Search titles &amp; authors…" autocomplete="off">
@@ -89,6 +88,13 @@
           <option value="all">All</option>
           <option value="favorites">Favourites</option>
         </select>
+      </label>
+
+      <span class="label">Subfield</span>
+      <nav class="seg small" id="mode-seg" aria-label="Field mode"></nav>
+      <label class="dd-wrap" id="mode-dd-wrap">
+        <span class="dd-label">Subfield</span>
+        <select id="mode-dd" aria-label="Field mode"></select>
       </label>
 
       <span class="label">Ranking</span>

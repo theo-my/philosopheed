@@ -436,6 +436,12 @@ body:not([data-cardstyle="basic"]) .tcard::before {
   background: rgba(0, 0, 0, 0.35); align-items: center; justify-content: center;
 }
 .overlay.show { display: flex; }
+/* The paper detail modal can be opened FROM WITHIN the journal popout (a
+   paper row inside #journal-modal), so it must stack strictly above it —
+   otherwise it renders visible-but-uncoverable behind the popout. Bump only
+   #paper-overlay's z-index above the shared .overlay baseline (90); the
+   about modal never opens over another overlay, so it stays at 90. */
+#paper-overlay { z-index: 95; }
 .modal {
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: var(--shadow); max-width: 760px; width: calc(100vw - 48px);
@@ -572,11 +578,12 @@ body.touch-device #btn-aim { display: inline-flex; }
   .subrow .label { display: none; } /* redundant with the dropdowns' own inline labels below */
   .yearpick input[type="number"], .custompick input[type="number"] { width: 60px; }
 
-  /* View/Ranking/Window collapse into compact dropdowns (task 12) — this
-     supersedes the seg-wrapping rules above FOR THOSE THREE controls only;
-     mode-seg and the Display-popover segments are unaffected. Goal: the
-     subrow drops from several wrapped button rows to one compact row. */
-  #view-seg, #rank-seg, #win-seg { display: none; }
+  /* View/Subfield/Ranking/Window collapse into compact dropdowns (task 12,
+     extended in v8 to cover Subfield alongside the original three) — this
+     supersedes the seg-wrapping rules above FOR THESE FOUR controls only;
+     the Display-popover segments are unaffected. Goal: the subrow drops
+     from several wrapped button rows to one compact row. */
+  #view-seg, #mode-seg, #rank-seg, #win-seg { display: none; }
   .dd-wrap { display: inline-flex; }
 
   main { padding: 10px 0 60px; } /* reclaim vertical space the compacted header freed up */
@@ -640,12 +647,12 @@ body.touch-device #btn-aim { display: inline-flex; }
   .subrow { gap: 4px 6px; padding: 4px 0 6px; }
   main { padding: 6px 0 40px; }
 
-  /* View/Ranking/Window -> compact dropdowns here too — a short landscape
-     phone (e.g. 844x390) doesn't trip the max-width:640px rule above (it's
-     plenty WIDE, just very SHORT), but the wrapped seg rows are exactly as
-     cramped vertically, so this breakpoint needs its own copy. */
+  /* View/Subfield/Ranking/Window -> compact dropdowns here too — a short
+     landscape phone (e.g. 844x390) doesn't trip the max-width:640px rule
+     above (it's plenty WIDE, just very SHORT), but the wrapped seg rows are
+     exactly as cramped vertically, so this breakpoint needs its own copy. */
   .subrow .label { display: none; }
-  #view-seg, #rank-seg, #win-seg { display: none; }
+  #view-seg, #mode-seg, #rank-seg, #win-seg { display: none; }
   .dd-wrap { display: inline-flex; }
 }
 

@@ -27,6 +27,32 @@ await page.locator("header.site").screenshot({ path: `${OUT}/01a-desktop-header.
   console.log(`Desktop header: dropdowns visible=${ddVisible} (expect false), segmented rows visible=${segVisible} (expect true)`);
 }
 
+// v8-05: top .site-row no longer carries the old unlabelled #mode-seg — it
+// moved into .subrow as the labelled "Subfield" group (see v8-03 below).
+{
+  const modeInTopRow = await page.evaluate(() => {
+    const row = document.querySelector(".site-row");
+    const seg = document.querySelector("#mode-seg");
+    return !!(row && seg && row.contains(seg));
+  });
+  console.log(`v8-05: #mode-seg inside top .site-row: ${modeInTopRow} (expect false)`);
+  await page.locator(".site-row").screenshot({ path: `${OUT}/v8-05-top-row-no-mode-seg.png` });
+}
+
+// v8-03: desktop .subrow now shows View · Subfield · Ranking · Window groups
+// (Subfield immediately after View, matching the existing pattern).
+{
+  const labels = await page.locator(".subrow > .label").allInnerTexts();
+  console.log(`v8-03: .subrow group labels: ${JSON.stringify(labels)} (expect ["View","Subfield","Ranking","Window"])`);
+  const modeInSubrow = await page.evaluate(() => {
+    const sub = document.querySelector(".subrow");
+    const seg = document.querySelector("#mode-seg");
+    return !!(sub && seg && sub.contains(seg));
+  });
+  console.log(`v8-03: #mode-seg inside .subrow: ${modeInSubrow} (expect true)`);
+  await page.locator(".subrow").screenshot({ path: `${OUT}/v8-03-subrow-desktop.png` });
+}
+
 // journal card head close-up (desktop) — verifies the compacted card-top
 // padding and that "View all" now sits inline with the count, not stacked
 // directly above/over the sparkline
@@ -263,6 +289,49 @@ await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/10-journal-popout.png` });
 await page.keyboard.press("Escape");
 await page.waitForTimeout(200);
+
+// v8-01/v8-02: paper modal opened FROM a paper row inside the journal
+// popout must stack strictly above it (interactive, not just visible), and
+// closing the paper modal (Esc here; click-outside/X share the same
+// closePaper()) must return to the still-open journal popout rather than
+// closing both at once.
+{
+  await page.locator(".jcard .viewall").first().click();
+  await page.waitForTimeout(400);
+  await page.locator("#journal-modal .paper").first().click();
+  await page.waitForTimeout(600);
+
+  const stackCheck = await page.evaluate(() => {
+    const paperModal = document.querySelector("#paper-modal");
+    const rect = paperModal.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const topEl = document.elementFromPoint(cx, cy);
+    const paperZ = Number(getComputedStyle(document.querySelector("#paper-overlay")).zIndex);
+    const journalZ = Number(getComputedStyle(document.querySelector("#journal-overlay")).zIndex);
+    return {
+      topElIsInPaperModal: !!(topEl && paperModal.contains(topEl)),
+      paperZ, journalZ,
+    };
+  });
+  const v801pass = stackCheck.topElIsInPaperModal && stackCheck.paperZ > stackCheck.journalZ;
+  console.log(`v8-01: elementFromPoint(paper-modal center) inside #paper-modal=${stackCheck.topElIsInPaperModal}, ` +
+    `#paper-overlay z-index=${stackCheck.paperZ} > #journal-overlay z-index=${stackCheck.journalZ} -> ${v801pass ? "PASS" : "FAIL"}`);
+  await page.screenshot({ path: `${OUT}/v8-01-paper-over-journal.png` });
+
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  const afterEsc = await page.evaluate(() => ({
+    paperOpen: document.querySelector("#paper-overlay").classList.contains("show"),
+    journalOpen: document.querySelector("#journal-overlay").classList.contains("show"),
+  }));
+  const v802pass = !afterEsc.paperOpen && afterEsc.journalOpen;
+  console.log(`v8-02: after Esc — paper modal open=${afterEsc.paperOpen} (expect false), journal popout open=${afterEsc.journalOpen} (expect true) -> ${v802pass ? "PASS" : "FAIL"}`);
+  await page.screenshot({ path: `${OUT}/v8-02-esc-closes-paper-only.png` });
+
+  await page.keyboard.press("Escape"); // close the journal popout too, cleanup for the rest of the run
+  await page.waitForTimeout(200);
+}
 
 // about modal (light mode) — new copy, dynamic "Data last updated" line
 // rendered in the viewer's local timezone (headless Chromium's default TZ)
@@ -613,6 +682,33 @@ await mp.locator(".jcard").first().locator(".jhead").screenshot({ path: `${OUT}/
   const ddVisible = await mp.locator("#view-dd-wrap").isVisible();
   console.log(`Mobile portrait: view-seg visible=${segVisible} (expect false), view-dd-wrap visible=${ddVisible} (expect true)`);
 }
+
+// v8-04: mobile portrait — four dropdowns (View/Subfield/Ranking/Window) all
+// visible in .subrow, then switch Subfield to "Ethics & political" and
+// assert the Ranking dropdown's options change accordingly (general mode:
+// de Bruin/Leiter/Favourites -> field modes: Field ranking/Favourites).
+{
+  const ddVis = {
+    view: await mp.locator("#view-dd-wrap").isVisible(),
+    mode: await mp.locator("#mode-dd-wrap").isVisible(),
+    rank: await mp.locator("#rank-dd-wrap").isVisible(),
+    win: await mp.locator("#win-dd-wrap").isVisible(),
+  };
+  console.log(`v8-04: mobile dropdowns visible: ${JSON.stringify(ddVis)} (expect all true)`);
+  await mp.screenshot({ path: `${OUT}/v8-04a-mobile-four-dropdowns.png` });
+
+  const rankOptsBefore = await mp.locator("#rank-dd option").allTextContents();
+  await mp.selectOption("#mode-dd", "ethics");
+  await mp.waitForTimeout(400);
+  const rankOptsAfter = await mp.locator("#rank-dd option").allTextContents();
+  const rankChanged = JSON.stringify(rankOptsBefore) !== JSON.stringify(rankOptsAfter);
+  console.log(`v8-04: rank-dd options before=${JSON.stringify(rankOptsBefore)} after switching to Ethics & political=${JSON.stringify(rankOptsAfter)} -> changed=${rankChanged} (expect true)`);
+  await mp.screenshot({ path: `${OUT}/v8-04b-mobile-subfield-ethics.png` });
+
+  await mp.selectOption("#mode-dd", "general"); // revert for the rest of the mobile run
+  await mp.waitForTimeout(300);
+}
+
 await mp.selectOption("#win-dd", "year");
 await mp.waitForTimeout(300);
 await mp.screenshot({ path: `${OUT}/m01d-window-dd-year-open.png` }); // typed-year input still reachable via the dropdown flow

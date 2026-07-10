@@ -847,10 +847,34 @@ function initChrome() {
   if ("ontouchstart" in window || navigator.maxTouchPoints > 0) {
     document.body.classList.add("touch-device");
   }
+  // Subfield (field mode): general / ethics-political / phil-science /
+  // tech-AI — same segmented-row + compact-dropdown pairing as View/Ranking/
+  // Window (setMode mirrors setView/setWindow below), so changing it via
+  // either control always keeps both, plus rank options / basis-note / the
+  // 3D view / the favourites list, in sync.
   const modes = S.registry.meta.modes;
-  segButtons($("#mode-seg"),
-    Object.keys(modes).map((id) => ({ id, label: modes[id].label, on: id === S.mode })),
-    (id) => { S.mode = id; syncRankControls(); refresh(); S.three?.setMode?.(); renderFavoritesList(); });
+  function buildModeSeg() {
+    segButtons($("#mode-seg"),
+      Object.keys(modes).map((id) => ({ id, label: modes[id].label, on: id === S.mode })),
+      setMode);
+  }
+  function buildModeDropdown() {
+    $("#mode-dd").innerHTML = Object.keys(modes)
+      .map((id) => `<option value="${id}"${id === S.mode ? " selected" : ""}>${esc(modes[id].label)}</option>`)
+      .join("");
+  }
+  function setMode(id) {
+    S.mode = id;
+    buildModeSeg();
+    $("#mode-dd").value = id;
+    syncRankControls();
+    refresh();
+    S.three?.setMode?.();
+    renderFavoritesList();
+  }
+  buildModeSeg();
+  buildModeDropdown();
+  $("#mode-dd").addEventListener("change", (e) => setMode(e.target.value));
   syncRankControls();
   $("#rank-dd").addEventListener("change", (e) => applyRanking(e.target.value));
 
@@ -969,7 +993,11 @@ function initChrome() {
   $("#journal-overlay").addEventListener("click", (e) => { if (e.target.id === "journal-overlay") closeJournalModal(); });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      closePaper();
+      // Paper modal can be opened from within the journal popout and now
+      // stacks above it (see #paper-overlay z-index in style.css) — so a
+      // single Escape while both are open must close ONLY the paper modal,
+      // returning to the still-open journal popout, not both at once.
+      if ($("#paper-overlay").classList.contains("show")) { closePaper(); return; }
       $("#about-overlay").classList.remove("show");
       closeJournalModal();
       closeDisplayPopover();
