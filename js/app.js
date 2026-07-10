@@ -1274,7 +1274,6 @@ function initChrome() {
       getFavorites: () => Prefs.favorites.slice(),
     });
   });
-  $("#btn-3d-open-favs").addEventListener("click", () => S.three?.openFavorites?.());
   $("#btn-aim").addEventListener("click", () => S.three?.toggleAim?.());
   $("#btn-exit-3d").addEventListener("click", () => {
     $("#three-wrap").classList.remove("show");
