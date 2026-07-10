@@ -623,9 +623,9 @@ await setRanking(page, "de Bruin");
 await page.waitForTimeout(300);
 
 // ------------------------------------------------------------------- 3D --
-// _debugState() is a small read-only hook threeview.js exports purely for
-// this kind of assertion (camera position, lectern occupancy, ghost count,
-// panel-open) — see js/threeview.js's "testing" section at the bottom.
+// v10: single bookcase, direct reading. _debugState()/_screenPosOf() are
+// small read-only hooks threeview.js exports purely for this kind of
+// assertion — see js/threeview.js's "testing" section at the bottom.
 // Re-importing the module by URL inside page.evaluate resolves to the SAME
 // already-running singleton instance app.js loaded (ES module caching is
 // per-resolved-URL), so this reads genuinely live state, not a fresh copy.
@@ -635,125 +635,114 @@ async function threeDebugState() {
     return m._debugState();
   });
 }
+async function threeScreenPosOf(journalId) {
+  return page.evaluate(async (id) => {
+    const m = await import(new URL("./js/threeview.js", location.href).href);
+    return m._screenPosOf(id);
+  }, journalId);
+}
 
 await enter3D(page);
 await page.waitForTimeout(2500);
-await page.screenshot({ path: `${OUT}/15-3d.png` }); // home view — lecterns close & below eye level, empty
 
-// discovery hint should be visible shortly after entering 3D, before its
-// 10s auto-dismiss or a big rotation
-await page.screenshot({ path: `${OUT}/15b-discovery-hint.png` });
+// v10-01: home view — single bookcase, all shelves populated, specialist
+// shelf labels visible. homeEye() now derives its distance from the case's
+// real height AND width (see js/threeview.js), so the home dolly level
+// already frames the whole (taller, single-carcass) case on its own —
+// no manual zoom-out needed before this shot any more.
+await page.screenshot({ path: `${OUT}/v10-01-3d-home-single-case.png` });
 
-// click 3 top-shelf books (well clear of the lectern row below) — each
-// opens onto the next free lectern (title legible from the home camera,
-// unmoved — see LECTERN_Z/LECTERN_STAND_H in threeview.js)
-for (const x of [260, 500, 750]) {
-  await page.mouse.click(x, 260);
-  await page.waitForTimeout(900);
-}
-await page.waitForTimeout(300);
-await page.screenshot({ path: `${OUT}/16-lecterns-open-books.png` }); // lecterns WITH opened books, legible from home
+// v10-02: journal count on shelves == registry journal count, no duplicates
 {
   const st = await threeDebugState();
-  console.log(`Lecterns occupied after 3 clicks: ${JSON.stringify(st.lecternOccupancy)} (expect [true,true,true,false,false])`);
+  const registryCount = await page.evaluate(async () => {
+    const res = await fetch(new URL("./data/journals.json", location.href).href);
+    const d = await res.json();
+    return d.journals.length;
+  });
+  const uniqueCount = new Set(st.journalIds).size;
+  const pass = st.journalIds.length === registryCount && uniqueCount === registryCount;
+  console.log(`v10-02: shelved=${st.journalIds.length} unique=${uniqueCount} registryTotal=${registryCount} -> ${pass ? "PASS" : "FAIL"}`);
 }
 
-// ghost slots: each emptied shelf slot should show a ghosted journal-name
-// marker with its own ↩ Return — same view as 16, named separately per the
-// verification brief; also assert the count via _debugState rather than
-// just eyeballing the screenshot
-{
-  const st = await threeDebugState();
-  console.log(`Ghost slots present: ${st.ghostCount} (expect 3)`);
-  await page.screenshot({ path: `${OUT}/16b-ghost-slots.png` });
-}
-
-// click a ghost slot's own ↩ Return (NOT the lectern's) — sends that book
-// straight back to the shelf and clears its lectern, independent of the
-// lectern's own ↩. Small probe grid — the exact pixel shifts slightly with
-// the shelf's own reflowed row width.
-{
-  let returned = false;
-  for (const [x, y] of [[230, 235], [232, 240], [228, 230], [235, 245], [225, 238]]) {
-    await page.mouse.click(x, y);
-    await page.waitForTimeout(400);
-    const st = await threeDebugState();
-    if (!st.lecternOccupancy[0]) { returned = true; break; }
-  }
-  console.log(`Ghost-slot ↩ Return worked: ${returned}`);
-  await page.screenshot({ path: `${OUT}/16c-ghost-return-clicked.png` }); // first lectern empty again, book back on shelf
-  // put it back on the lectern for the reading-panel test below
-  await page.mouse.click(260, 260);
-  await page.waitForTimeout(900);
-}
-
-// click the occupied lectern's open book — reading is a screen-space panel
-// now, NOT a camera fly-to (v7 retired that entirely). Assert the camera
-// position is bit-for-bit unchanged before vs after, since that's the whole
-// point of the change. Probe a small grid around the expected book position
-// rather than a single guessed pixel (camera framing can shift a little).
+// v10-03: click a book (the top-ranked general-shelf book, via the exact
+// screen projection rather than a guessed pixel) — it should fly out in
+// front of the camera and the reading panel should open with that
+// journal's papers, with the camera position bit-for-bit unchanged.
+let topGeneralId = null;
 {
   const before = await threeDebugState();
-  let opened = false;
-  // target the 3rd placed book's lectern (from the (750,260) shelf click) —
-  // it lands fully on-screen and centred, unlike the leftmost lectern's
-  // book which can be partially cropped by the viewport edge
-  for (const [x, y] of [[750, 520], [720, 530], [780, 510], [700, 540], [800, 500]]) {
-    await page.mouse.click(x, y);
-    await page.waitForTimeout(600);
-    if (await page.locator("#pg-close").isVisible().catch(() => false)) { opened = true; break; }
-  }
-  if (!opened) console.log("WARNING: could not open the lectern reading pane — check 16-lecterns-open-books.png for actual book position");
+  topGeneralId = before.generalOrder[0];
+  const pos = await threeScreenPosOf(topGeneralId);
+  await page.mouse.click(pos.x, pos.y);
+  await page.waitForTimeout(700);
   const after = await threeDebugState();
   const cameraUnmoved = JSON.stringify(before.cameraPos) === JSON.stringify(after.cameraPos);
-  console.log(`Reading-panel camera-unmoved assertion: opened=${opened} before=${JSON.stringify(before.cameraPos)} after=${JSON.stringify(after.cameraPos)} -> ${cameraUnmoved ? "PASS (camera did not move)" : "FAIL (camera moved!)"}`);
-  await page.screenshot({ path: `${OUT}/17-lectern-reading-pane.png` }); // screen-space overlay, camera unchanged behind it
+  const panelOpen = await page.locator("#three-panel.show").isVisible().catch(() => false);
+  const pass = panelOpen && after.bookOut === topGeneralId && cameraUnmoved;
+  console.log(`v10-03: clicked ${topGeneralId} — panelOpen=${panelOpen}, bookOut=${after.bookOut}, cameraUnmoved=${cameraUnmoved} -> ${pass ? "PASS" : "FAIL"}`);
+  await page.screenshot({ path: `${OUT}/v10-03-book-out-reading-panel.png` });
   const volsepCount = await page.locator("#three-panel .volsep").count();
   console.log(`Reading panel volume separators present: ${volsepCount}`);
-  if (opened) {
-    await page.locator("#pg-close").click(); // close — camera should still be exactly where it was
-    await page.waitForTimeout(400);
-    const afterClose = await threeDebugState();
-    const cameraStillUnmoved = JSON.stringify(before.cameraPos) === JSON.stringify(afterClose.cameraPos);
-    console.log(`Camera position after Close: ${JSON.stringify(afterClose.cameraPos)} -> ${cameraStillUnmoved ? "PASS" : "FAIL"}`);
-    await page.screenshot({ path: `${OUT}/17b-reading-panel-closed.png` });
-  }
 }
 
-// rotate the camera (look-around drag, not an orbit of the bookcase) toward
-// a labelled side shelf
-await page.mouse.move(750, 470);
-await page.mouse.down();
-await page.mouse.move(120, 470, { steps: 24 });
-await page.mouse.up();
-await page.waitForTimeout(600);
-await page.screenshot({ path: `${OUT}/18-side-shelf-rotated.png` });
-// rotate back toward home for the remaining shots
-await page.mouse.move(120, 470);
-await page.mouse.down();
-await page.mouse.move(750, 470, { steps: 24 });
-await page.mouse.up();
-await page.waitForTimeout(600);
+// v10-04: Esc closes the panel and sends the book back — camera still
+// unmoved throughout.
+{
+  const before = await threeDebugState();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(600);
+  const after = await threeDebugState();
+  const cameraUnmoved = JSON.stringify(before.cameraPos) === JSON.stringify(after.cameraPos);
+  const panelClosed = !(await page.locator("#three-panel.show").isVisible().catch(() => false));
+  const pass = panelClosed && after.bookOut === null && cameraUnmoved;
+  console.log(`v10-04: after Esc — panelClosed=${panelClosed}, bookOut=${after.bookOut} (expect null), cameraUnmoved=${cameraUnmoved} -> ${pass ? "PASS" : "FAIL"}`);
+  await page.screenshot({ path: `${OUT}/v10-04-esc-book-returned.png` });
+}
 
-// wide/zoomed-out shot: side-shelf adjacency — both wings hinged flush
-// against the main case (v7 task 5), carved labels visible ("Ethics &
-// Political", "Philosophy of science", "Technology & AI")
-await page.mouse.wheel(0, 900); // dollyBy(-deltaY*0.012): positive deltaY zooms OUT
-await page.waitForTimeout(400);
-await page.screenshot({ path: `${OUT}/18b-side-shelf-adjacency-wide.png` });
-await page.mouse.wheel(0, -900); // zoom back in to the home dolly level
-await page.waitForTimeout(400);
+// v10-05: switching ranking via #rank-seg-3d reshelves the general
+// section — assert the shelving order actually changes.
+{
+  const before = await threeDebugState();
+  await page.locator("#rank-seg-3d button", { hasText: "Leiter" }).click();
+  await page.waitForTimeout(500);
+  const after = await threeDebugState();
+  const orderChanged = JSON.stringify(before.generalOrder) !== JSON.stringify(after.generalOrder);
+  console.log(`v10-05: general shelf order before=${JSON.stringify(before.generalOrder.slice(0, 5))}… after Leiter=${JSON.stringify(after.generalOrder.slice(0, 5))}… -> ${orderChanged ? "PASS (order differs)" : "FAIL (order unchanged)"}`);
+  await page.screenshot({ path: `${OUT}/v10-05-3d-reranked.png` });
+  await page.locator("#rank-seg-3d button", { hasText: "de Bruin" }).click(); // revert
+  await page.waitForTimeout(500);
+}
 
-// Favourites in 3D: "Open favourites" places the top N onto the lecterns
-await page.locator("#btn-3d-open-favs").click();
-await page.waitForTimeout(1200);
-await page.screenshot({ path: `${OUT}/19-3d-open-favorites.png` });
+// click-empty-space also returns an out book (reuses the same closeBook()
+// path Esc uses) — verified via code path above; sanity screenshot of a
+// second book opened then dismissed by clicking empty space.
+{
+  const pos = await threeScreenPosOf(topGeneralId);
+  await page.mouse.click(pos.x, pos.y);
+  await page.waitForTimeout(700);
+  await page.mouse.click(500, 850); // lower-left canvas area — clear of the HUD, panel, and hint text
+  await page.waitForTimeout(500);
+  const st = await threeDebugState();
+  console.log(`Click-empty-space return: bookOut=${st.bookOut} (expect null)`);
+}
 
 // dark mode
 await page.locator("#btn-exit-3d").click();
 await toggleTheme(page);
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/25-dark.png` }); // book-style cards, dark mode
+
+// v10-06: 3D in dark mode (#btn-theme is covered by #three-wrap while 3D is
+// open — z-index 60 vs the header's 40 — so the toggle has to happen while
+// back on the 2D dashboard, as above, then re-enter 3D for this shot)
+{
+  await page.locator("#btn-3d").click();
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: `${OUT}/v10-06-3d-dark.png` });
+  await page.locator("#btn-exit-3d").click();
+  await page.waitForTimeout(200);
+}
 
 // about modal (dark mode) — confirm the new copy/links read fine on dark surface
 await openAboutMenu(page);
@@ -972,8 +961,9 @@ await mp.waitForTimeout(300);
   await mp.waitForTimeout(300);
 }
 
-// 3D — portrait: framing, touch-drag rotate, "Aim to view". Entered via the
-// "⋯" menu on mobile (the standalone #btn-3d hides below the breakpoint).
+// 3D — portrait: single-bookcase framing, touch-drag rotate, "Aim to view".
+// Entered via the "⋯" menu on mobile (the standalone #btn-3d hides below
+// the breakpoint).
 await enter3D(mp, true);
 await mp.waitForTimeout(2500);
 await mp.screenshot({ path: `${OUT}/m07-3d-portrait.png` });
@@ -1012,16 +1002,17 @@ await mp.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent("deviceo
 await mp.waitForTimeout(300);
 await mp.screenshot({ path: `${OUT}/m10-aim-camera-moved.png` }); // camera should have turned ~60°
 
-// turn far enough to face away — gyro mode is unclamped, so this should
-// reveal the rear-hemisphere "bookshelves are behind you" sign
+// turn far enough to face away — gyro mode's yaw is deliberately unclamped
+// (unlike drag), so this should keep turning smoothly past the point drag
+// would have stopped at
 await mp.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent("deviceorientation", { alpha: 195, beta: 10, gamma: 0 })));
 await mp.waitForTimeout(300);
-await mp.screenshot({ path: `${OUT}/m11-aim-rear-sign.png` });
+await mp.screenshot({ path: `${OUT}/m11-aim-turned-away.png` });
 
-// turn back toward the shelf — sign should disappear (with hysteresis)
+// turn back toward the shelf
 await mp.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent("deviceorientation", { alpha: 15, beta: 8, gamma: 0 })));
 await mp.waitForTimeout(300);
-await mp.screenshot({ path: `${OUT}/m12-aim-rear-sign-gone.png` });
+await mp.screenshot({ path: `${OUT}/m12-aim-turned-back.png` });
 
 await mp.locator("#btn-aim").click(); // toggle off
 await mp.waitForTimeout(300);
@@ -1051,7 +1042,7 @@ await ml.locator("header.site").screenshot({ path: `${OUT}/m13a-header-landscape
 
 await enter3D(ml, true);
 await ml.waitForTimeout(2500);
-await ml.screenshot({ path: `${OUT}/m14-3d-landscape.png` }); // shelf + lecterns framing, HUD not covering the scene
+await ml.screenshot({ path: `${OUT}/m14-3d-landscape.png` }); // single-bookcase framing, HUD not covering the scene
 
 await ml.mouse.move(600, 200);
 await ml.mouse.down();
