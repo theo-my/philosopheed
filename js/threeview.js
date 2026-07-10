@@ -52,16 +52,37 @@ const PORTRAIT_ASPECT = 0.8; // below this we're in "tall phone" territory
 // journals/fields the registry has.
 function caseCenterY() { return caseInfo.topY + BOOK_H + 0.4 - caseInfo.totalH / 2; }
 
+// Real camera fov for the current aspect — same derivation applyCameraFov()
+// uses (kept in sync deliberately), rather than a rough guessed constant.
+// Guessing badly here (a flat ~19°/23° half-vfov) is what made the home
+// framing miss badly on tall phone aspects, where the actual vertical fov
+// balloons far past that as applyCameraFov widens it to hold a sane
+// *horizontal* fov on a narrow screen.
+function homeCameraFovs() {
+  const aspect = innerWidth / innerHeight;
+  const portrait = aspect < PORTRAIT_ASPECT;
+  const targetH = portrait ? TARGET_HORIZONTAL_FOV_PORTRAIT : TARGET_HORIZONTAL_FOV;
+  const vFovRaw = 2 * Math.atan(Math.tan(targetH / 2) / aspect);
+  const vFov = THREE.MathUtils.clamp(vFovRaw, THREE.MathUtils.degToRad(40), THREE.MathUtils.degToRad(88));
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect); // actual horizontal fov once vFov is clamped
+  return { vFov, hFov };
+}
+const HOME_V_MARGIN = 2.0, HOME_H_MARGIN = 1.6; // world-unit headroom around the case at home
+
+// Distance that clears the whole case, height AND width, with a bit of
+// headroom — whichever of the two needs is more demanding wins. On a wide
+// desktop viewport the height need dominates (the case ends up filling most
+// of the frame's height, a little air above/below); on a narrow/tall phone
+// viewport the width need dominates instead, since the case is much wider
+// than it is tall but the phone's usable horizontal fov is kept modest — a
+// shelf row's top/bottom can end up just outside frame there, which is fine
+// (nothing left-right ever gets clipped, so no book ever looks cut off).
 function homeEye() {
-  const portrait = innerWidth / innerHeight < PORTRAIT_ASPECT;
-  // Half-vertical-fov the camera actually ends up with at a typical
-  // desktop/portrait aspect ratio (see applyCameraFov) — used to back the
-  // camera off just far enough to fit the whole case height in frame, with
-  // a little headroom so shelves aren't flush against the screen edge.
-  const halfVFov = THREE.MathUtils.degToRad(portrait ? 19 : 23);
-  const halfH = caseInfo.totalH / 2 + 1.4;
-  const dist = THREE.MathUtils.clamp(halfH / Math.tan(halfVFov), 14, 34);
-  return new THREE.Vector3(0, caseCenterY(), dist + (portrait ? 5 : 0));
+  const { vFov, hFov } = homeCameraFovs();
+  const distH = (caseInfo.totalH / 2 + HOME_V_MARGIN) / Math.tan(vFov / 2);
+  const distW = (caseInfo.caseWidth / 2 + HOME_H_MARGIN) / Math.tan(hFov / 2);
+  const dist = THREE.MathUtils.clamp(Math.max(distH, distW), 14, 34);
+  return new THREE.Vector3(0, caseCenterY(), dist);
 }
 function homePitch() { return 0; }
 
@@ -130,6 +151,107 @@ function spineTexture(journal, rank, count) {
   g.globalAlpha = 0.85;
   g.fillText(`${count}`, 0, 0);
   g.restore();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// Word-wraps `text` onto lines no wider than maxWidth (assumes g.font is
+// already set) — used by coverTexture() below to lay the journal name out
+// across the much wider cover face, rather than spineTexture()'s single
+// rotated line up the narrow spine.
+function wrapLines(g, text, maxWidth, maxLines) {
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const trial = line ? `${line} ${w}` : w;
+    if (line && g.measureText(trial).width > maxWidth) {
+      lines.push(line);
+      line = w;
+      if (lines.length === maxLines) return lines;
+    } else {
+      line = trial;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// Front-cover texture for the face that turns to meet the camera when a
+// book comes off the shelf (see quaternionFacing() — the local +X face is
+// what ends up pointing at the viewer). Used to be a flat colour swatch;
+// now a proper plate-style cover — rank, journal name, publisher — in the
+// journal's own colour scheme, canvas-textured the same way spineTexture()
+// textures the narrow spine face, just laid out for a much wider canvas.
+function coverTexture(journal, rank, count) {
+  const color = jcolor(journal);
+  const text = ctx.textOn(color);
+  const W = 640, H = 950; // matches the cover face's own aspect (BOOK_D x BOOK_H)
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const g = cv.getContext("2d");
+  g.fillStyle = color;
+  g.fillRect(0, 0, W, H);
+  const shade = g.createLinearGradient(0, 0, 0, H);
+  shade.addColorStop(0, "rgba(255,255,255,0.10)");
+  shade.addColorStop(0.5, "rgba(255,255,255,0)");
+  shade.addColorStop(1, "rgba(0,0,0,0.22)");
+  g.fillStyle = shade;
+  g.fillRect(0, 0, W, H);
+
+  // Double inset frame — the "hardcover with a debossed border" look.
+  g.strokeStyle = text;
+  g.globalAlpha = 0.55;
+  g.lineWidth = 6;
+  g.strokeRect(34, 34, W - 68, H - 68);
+  g.lineWidth = 2;
+  g.strokeRect(50, 50, W - 100, H - 100);
+  g.globalAlpha = 1;
+
+  const maxWidth = W - 150;
+  g.fillStyle = text;
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = 'bold 44px "Century Schoolbook", "CMU Serif", Georgia, serif';
+  g.fillText(rank === Infinity ? "UNRANKED" : `No. ${rank}`, W / 2, 118);
+  g.fillRect(W / 2 - 56, 148, 112, 3);
+
+  // Title: word-wrapped, shrinking to fit within a handful of lines rather
+  // than the spine's single-line-with-ellipsis (there's room to spare here).
+  let size = 66, lines = [];
+  const maxLines = 4;
+  do {
+    g.font = `bold ${size}px "Century Schoolbook", "CMU Serif", Georgia, serif`;
+    lines = wrapLines(g, journal.name, maxWidth, maxLines + 1);
+    if (lines.length <= maxLines) break;
+    size -= 4;
+  } while (size > 26);
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    let last = lines[maxLines - 1];
+    while (last && g.measureText(last + "…").width > maxWidth) last = last.slice(0, -1);
+    lines[maxLines - 1] = last + "…";
+  }
+  const lineH = size * 1.22;
+  const startY = H / 2 - ((lines.length - 1) * lineH) / 2;
+  lines.forEach((ln, i) => g.fillText(ln, W / 2, startY + i * lineH));
+
+  g.font = '30px "Century Schoolbook", "CMU Serif", Georgia, serif';
+  g.globalAlpha = 0.85;
+  let pub = journal.publisher || "";
+  if (pub && g.measureText(pub).width > maxWidth) {
+    while (pub && g.measureText(pub + "…").width > maxWidth) pub = pub.slice(0, -1);
+    pub += "…";
+  }
+  g.fillText(pub, W / 2, H - 148);
+  g.globalAlpha = 1;
+  g.fillRect(W / 2 - 90, H - 108, 180, 3);
+
+  g.font = '24px "Century Schoolbook", "CMU Serif", Georgia, serif';
+  g.globalAlpha = 0.7;
+  g.fillText(`${count} papers tracked`, W / 2, H - 62);
+  g.globalAlpha = 1;
+
   const tex = new THREE.CanvasTexture(cv);
   tex.anisotropy = 8;
   return tex;
@@ -280,11 +402,17 @@ function buildBookcase() {
       const count = archiveTotal(j.id) || 0;
       const rank = sec.rankFn(j);
       const spineMat = new THREE.MeshBasicMaterial({ map: spineTexture(j, rank, count) });
+      // BoxGeometry material order is [+x, -x, +y, -y, +z, -z]. +z carries
+      // the spine (what's visible browsing the shelf); +x carries the front
+      // cover — quaternionFacing() always turns a book's local +x toward
+      // the camera when it flies out, so that's the face that needs to look
+      // like a cover rather than a blank swatch (see coverTexture() above).
+      const frontCoverMat = new THREE.MeshBasicMaterial({ map: coverTexture(j, rank, count) });
       const coverMat = new THREE.MeshBasicMaterial({ color: jcolor(j) });
       const pagesMat = new THREE.MeshBasicMaterial({ color: "#f3efe4" });
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(w, BOOK_H, BOOK_D),
-        [coverMat, coverMat, pagesMat, coverMat, spineMat, coverMat]);
+        [frontCoverMat, coverMat, pagesMat, coverMat, spineMat, coverMat]);
       const home = new THREE.Vector3(x + w / 2, shelfY + BOOK_H / 2, 0);
       mesh.position.copy(home);
       mesh.userData = { kind: "book", journalId: j.id };

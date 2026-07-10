@@ -493,14 +493,11 @@ await page.locator("#btn-3d").click();
 await page.waitForTimeout(2500);
 
 // v10-01: home view — single bookcase, all shelves populated, specialist
-// shelf labels visible. Zoom out a bit first so the whole (now taller,
-// single-carcass) case — general shelves plus the three specialist zones
-// stacked below them — fits in frame together.
-await page.mouse.wheel(0, 1400); // dollyBy(-deltaY*0.012): positive deltaY zooms OUT
-await page.waitForTimeout(400);
+// shelf labels visible. homeEye() now derives its distance from the case's
+// real height AND width (see js/threeview.js), so the home dolly level
+// already frames the whole (taller, single-carcass) case on its own —
+// no manual zoom-out needed before this shot any more.
 await page.screenshot({ path: `${OUT}/v10-01-3d-home-single-case.png` });
-await page.mouse.wheel(0, -1400); // back to the home dolly level
-await page.waitForTimeout(400);
 
 // v10-02: journal count on shelves == registry journal count, no duplicates
 {
