@@ -99,6 +99,15 @@ const S = {
   rows: [],              // rows for current window (all modes)
   mini: null,            // MiniSearch instance over rows
   three: null,           // threeview module (lazy)
+  // "new since your last visit" (v11) — see computeVisitBaseline() below.
+  // newIds/sinceVisitEligible are computed ONCE at boot; newFlags is
+  // recomputed every refresh() against whatever rows are actually rendered.
+  // sinceLastVisit is a transient VIEW OVERLAY, never persisted (a returning
+  // visitor must never get trapped in an empty "since last visit" view).
+  newIds: new Set(),          // Set of hashed dois flagged "new" (empty unless eligible)
+  newFlags: new Map(),        // doi -> true, for the CURRENTLY rendered S.rows
+  sinceVisitEligible: false,  // is the "Since last visit" window preset selectable?
+  sinceLastVisit: false,      // is that preset currently applied?
 };
 
 // savePrefs() reads session-y state straight off S (view/mode/ranking/window)
@@ -113,6 +122,110 @@ function savePrefs() {
     favorites: Prefs.favorites,
   };
   localStorage.setItem(PREF_KEY, JSON.stringify(toStore));
+}
+
+// -------------------------------------------- "new since your last visit" --
+// Definition of NEW: a paper is new iff it's in the feed now but was NOT in
+// the stored baseline — i.e. it *appeared* since the last visit. Deliberately
+// NOT based on publication date (RSS lag + back-catalogue re-indexes make
+// that unreliable). Baseline lives in its OWN localStorage key (not Prefs) so
+// clearing display prefs never nukes it.
+const SEEN_KEY = "philosopheed:seen";
+const SEEN_ROLL_MS = 60 * 60 * 1000;      // hysteresis: roll baseline fwd past this age
+const SEEN_SHOW_MS = 6 * 60 * 60 * 1000;  // anti-spam: don't render markers below this age
+const SEEN_SAFETY_FRACTION = 0.6;         // >60% "new" = treat baseline as corrupt/ancient
+
+// FNV-1a, 32-bit -> 8-char hex. Keeps the persisted baseline compact (a
+// fraction of the size of the raw DOI strings) — collisions are harmless
+// here (worst case: a genuinely new paper's hash collides with something in
+// the old baseline and it silently isn't flagged). Never used for anything
+// security-sensitive, so a fast, tiny, non-cryptographic hash is fine.
+export function fnv1aHash(str) {
+  let h = 0x811c9dc5;
+  const s = String(str ?? "");
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+// Computes S.newIds (hashed dois flagged "new") + S.sinceVisitEligible from
+// the persisted baseline vs. the current recent slice (S.recent — NOT
+// whatever window is selected; the baseline always tracks the same slice
+// regardless of the user's window pref). Runs once at boot, right after
+// loadCore() resolves S.recent and before the first refresh()/initChrome()
+// (the Window chip menu reads S.sinceVisitEligible when it first builds).
+//
+// Anti-spam rules (never flag the whole feed):
+//  - first visit / corrupt storage: store baseline silently, flag nothing.
+//  - >60% of the current slice would be "new": corrupt/ancient baseline —
+//    flag nothing, reset immediately (regardless of the hysteresis age).
+//  - baseline younger than 6h: flag nothing (but DO still roll it forward
+//    past 1h — see below — just without showing anything this load).
+// Hysteresis: a baseline >1h old rolls the PERSISTED copy forward to the
+// current slice, but this session keeps flagging against the OLD (in-memory)
+// set regardless — so a rapid reopen a few seconds after a >1h-old baseline
+// doesn't wipe "new" state mid-session. A baseline <1h old is left untouched
+// in storage entirely (rapid reopens must not roll it forward at all).
+function computeVisitBaseline() {
+  const currentIds = (S.recent || []).map((r) => fnv1aHash(r.doi));
+  const persist = (ids) => localStorage.setItem(SEEN_KEY, JSON.stringify({ ts: Date.now(), ids }));
+
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem(SEEN_KEY) || "null"); } catch { stored = null; }
+  if (!stored || !Array.isArray(stored.ids) || !Number.isFinite(stored.ts)) {
+    persist(currentIds); // first visit / corrupt storage
+    S.newIds = new Set();
+    S.sinceVisitEligible = false;
+    return;
+  }
+
+  const oldSet = new Set(stored.ids);
+  const newSet = new Set(currentIds.filter((id) => !oldSet.has(id)));
+  const fractionNew = currentIds.length ? newSet.size / currentIds.length : 0;
+  const ageMs = Date.now() - stored.ts;
+
+  if (fractionNew > SEEN_SAFETY_FRACTION) {
+    persist(currentIds); // safety valve — reset now, don't wait for the 1h hysteresis window
+    S.newIds = new Set();
+    S.sinceVisitEligible = false;
+    return;
+  }
+
+  if (ageMs > SEEN_ROLL_MS) persist(currentIds); // roll the PERSISTED copy forward only
+
+  if (ageMs < SEEN_SHOW_MS) {
+    S.newIds = new Set(); // too fresh to be worth showing
+    S.sinceVisitEligible = false;
+    return;
+  }
+
+  S.newIds = newSet;
+  S.sinceVisitEligible = true;
+}
+
+// Per-refresh(): which of the rows actually being rendered are flagged new —
+// computed once per refresh() (not once per paperRow()/card call).
+function computeNewFlags(rows) {
+  const map = new Map();
+  if (!S.newIds || !S.newIds.size) return map;
+  for (const r of rows) {
+    if (S.newIds.has(fnv1aHash(r.doi))) map.set(r.doi, true);
+  }
+  return map;
+}
+
+// Read-only testing hook (mirrors js/threeview.js's _debugState()/
+// _screenPosOf() pattern) — lets scripts/screenshot.mjs assert on live
+// in-page state via a dynamic re-import (same resolved URL => same already-
+// running module instance, not a fresh copy).
+export function _visitDebug() {
+  return {
+    sinceVisitEligible: !!S.sinceVisitEligible,
+    sinceLastVisit: !!S.sinceLastVisit,
+    newCount: S.newIds ? S.newIds.size : 0,
+  };
 }
 
 const $ = (sel) => document.querySelector(sel);
@@ -370,9 +483,14 @@ function paperRow(r, showJournal) {
     ? `<span class="pj"${jc ? ` style="color:${jc}"` : ""}>${jc ? "● " : ""}${esc(j?.name || r.journal)}</span> · `
     : "";
   const date = r.published;
-  const b = el("button", "paper");
+  const isNew = !!S.newFlags?.get(r.doi);
+  const b = el("button", isNew ? "paper is-new" : "paper");
   const si = r.si ? `<span class="sichip" title="${esc(r.si)}">SI</span>` : "";
-  b.innerHTML = `<div class="ptitle">${si}${sanitizeInline(r.title)}</div>
+  // "new since your last visit" (v11) — a small accent dot before the
+  // title; shared by paperRow() so venue/topic/All/favourites/search/journal
+  // popout all get it identically, for free.
+  const dot = isNew ? `<span class="newdot" title="New since your last visit" aria-label="New"></span>` : "";
+  b.innerHTML = `<div class="ptitle">${dot}${si}${sanitizeInline(r.title)}</div>
     <div class="pmeta">${esc(authors) || "<i>—</i>"} · ${jn}${date}</div>`;
   b.addEventListener("click", () => openPaper(r));
   return b;
@@ -431,6 +549,12 @@ function buildJournalCard(j, papers) {
   const card = el("div", "jcard");
   applyColor(card, j.color);
   const ceased = j.active === false ? `<span class="jceased">ceased</span>` : "";
+  // "new since your last visit" (v11) — counted off the FULL papers list
+  // (not just the rendered PREVIEW slice), so the chip stays accurate even
+  // when a new arrival happens to fall past the preview cutoff.
+  const newCount = papers.reduce((n, p) => n + (S.newFlags?.get(p.doi) ? 1 : 0), 0);
+  const newChip = newCount > 0
+    ? `<span class="newchip" title="New since your last visit">+${newCount} new</span>` : "";
   const head = el("div", "jhead");
   head.innerHTML = `${rankBadge(j)}
     <div><div class="jname">${esc(j.name)} ${ceased}</div>
@@ -438,6 +562,7 @@ function buildJournalCard(j, papers) {
     <div class="jright">
     <div class="jright-top">
     <span class="jcount"><b>${papers.length}</b> in window</span>
+    ${newChip}
     <button class="viewall" type="button" title="View the full list for this journal">View all</button>
     </div>
     ${sparkline(j.id)}</div>`;
@@ -835,9 +960,19 @@ function setStatus(msg) {
 async function refresh() {
   setStatus("Loading…");
   teardownAllView(); // leaving/re-entering the All view — drop any live lazy-render observer
-  const all = await rowsForWindow();
+  // "Since last visit" (v11) is a VIEW OVERLAY on top of the normal window
+  // machinery, not a window preset itself: it always sources from S.recent
+  // (the same slice the baseline is computed against — see
+  // computeVisitBaseline()), filtered down to only newly-arrived papers,
+  // regardless of whatever S.win is currently set to underneath. S.win is
+  // deliberately left untouched by the toggle (see setSinceLastVisit()) so a
+  // returning visitor is never trapped in an empty view on next load.
+  const all = S.sinceLastVisit
+    ? (S.recent || []).filter((r) => S.newIds.has(fnv1aHash(r.doi)))
+    : await rowsForWindow();
   const ids = new Set(modeJournals().map((j) => j.id));
   S.rows = all.filter((r) => ids.has(r.journal));
+  S.newFlags = computeNewFlags(S.rows);
   buildIndex(S.rows);
   const c = $("#content");
   c.innerHTML = "";
@@ -846,9 +981,9 @@ async function refresh() {
   else if (S.view === "all") c.append(renderAll(S.rows));
   else if (S.view === "favorites") c.append(renderFavoritesView(S.rows));
   else c.append(renderVenue(S.rows));
-  const winLabel = S.win === "year" ? `year ${S.year}`
+  const winLabel = S.sinceLastVisit ? "since last visit" : (S.win === "year" ? `year ${S.year}`
     : S.win === "custom" ? `last ${customWindowLabel()}`
-    : { 7: "last 7 days", 30: "last 30 days", 90: "last 90 days", 365: "last 12 months", 1826: "last 5 years", all: "since 2000" }[S.win];
+    : { 7: "last 7 days", 30: "last 30 days", 90: "last 90 days", 365: "last 12 months", 1826: "last 5 years", all: "since 2000" }[S.win]);
   $("#count-note").textContent =
     `${S.rows.length.toLocaleString()} papers · ${ids.size} journals · ${winLabel}`;
   $("#basis-note").textContent = S.mode === "general" ? "" : S.registry.meta.modes[S.mode].basis;
@@ -1010,6 +1145,10 @@ function initChrome() {
   const nowYear = new Date().getFullYear();
   const covNote = $("#cov-note");
   function updateCoverageNote() {
+    // "Since last visit" always sources from S.recent — well within the
+    // standard coverage window regardless of whatever S.win is set to
+    // underneath — so the archive-depth caveat never applies to it.
+    if (S.sinceLastVisit) { covNote.textContent = ""; covNote.classList.remove("show"); return; }
     const beyond5 = S.win === "all" || (S.win === "year" && S.year <= nowYear - 5)
       || (S.win === "custom" && customWindowDays() > 1826);
     covNote.textContent = beyond5
@@ -1027,22 +1166,41 @@ function initChrome() {
   // menu item's own (static) label.
   const WIN_PRESETS = { 7: "7 d", 30: "30 d", 90: "90 d", 365: "12 mo", 1826: "5 yr", all: "Since 2000" };
   function winChipLabel() {
+    if (S.sinceLastVisit) return "since last visit";
     if (S.win === "year") return String(S.year);
     if (S.win === "custom") return customWindowLabel();
     return WIN_PRESETS[S.win] || "12 mo";
   }
+  // "Since last visit" menu entry (v11) — sits below "Since 2000" and above
+  // "Pick a year…" in the markup (index.html). Disabled + a muted hint when
+  // there's no eligible baseline yet (first visit / baseline too fresh /
+  // safety-valve reset) — see computeVisitBaseline().
+  const sinceVisitBtn = $("#win-menu-since-visit");
+  function updateSinceVisitMenuItem() {
+    const eligible = !!S.sinceVisitEligible;
+    sinceVisitBtn.classList.toggle("on", S.sinceLastVisit);
+    sinceVisitBtn.setAttribute("aria-checked", S.sinceLastVisit ? "true" : "false");
+    sinceVisitBtn.disabled = !eligible;
+    sinceVisitBtn.classList.toggle("disabled", !eligible);
+    sinceVisitBtn.setAttribute("aria-disabled", eligible ? "false" : "true");
+    sinceVisitBtn.innerHTML = eligible
+      ? "Since last visit"
+      : `Since last visit<span class="chip-menu-hint">(no earlier visit yet)</span>`;
+  }
   function buildWinChipMenu() {
     $("#menu-win").querySelectorAll(".chip-menu-item[data-preset]").forEach((b) => {
-      const on = b.dataset.preset === S.win;
+      const on = b.dataset.preset === S.win && !S.sinceLastVisit;
       b.classList.toggle("on", on);
       b.setAttribute("aria-checked", on ? "true" : "false");
     });
-    $("#win-menu-year-toggle").classList.toggle("on", S.win === "year");
-    $("#win-menu-custom-toggle").classList.toggle("on", S.win === "custom");
+    $("#win-menu-year-toggle").classList.toggle("on", S.win === "year" && !S.sinceLastVisit);
+    $("#win-menu-custom-toggle").classList.toggle("on", S.win === "custom" && !S.sinceLastVisit);
+    updateSinceVisitMenuItem();
     setChipValue("chip-win", winChipLabel());
   }
   function setWindow(id) {
     S.win = id;
+    S.sinceLastVisit = false; // any real window preset exits the "since last visit" overlay
     $("#yearpick").classList.toggle("show", id === "year");
     $("#custompick").classList.toggle("show", id === "custom");
     buildWinChipMenu();
@@ -1053,6 +1211,21 @@ function initChrome() {
   $("#menu-win").querySelectorAll(".chip-menu-item[data-preset]").forEach((b) => {
     b.addEventListener("click", () => { setWindow(b.dataset.preset); closeAllPopovers(); });
   });
+  // Deliberately NOT persisted as the window pref (see savePrefs() — it only
+  // ever reads S.win, which this never touches) — a returning visitor must
+  // be restored to their previous REAL window, not trapped in an empty
+  // "since last visit" view.
+  function setSinceLastVisit(on) {
+    if (on && !S.sinceVisitEligible) return;
+    S.sinceLastVisit = on;
+    $("#yearpick").classList.remove("show");
+    $("#custompick").classList.remove("show");
+    buildWinChipMenu();
+    updateCoverageNote();
+    refresh();
+    savePrefs();
+  }
+  sinceVisitBtn.addEventListener("click", () => { setSinceLastVisit(true); closeAllPopovers(); });
 
   // custom time window: "last X <unit>" — small inline UI in the same style
   // as the typed-year control, now living inside the Window chip's menu.
@@ -1499,6 +1672,7 @@ function initChrome() {
 (async function boot() {
   try {
     await loadCore();
+    computeVisitBaseline(); // needs S.recent; must run before initChrome() builds the Window chip menu
     initChrome();
     await refresh();
   } catch (err) {

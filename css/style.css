@@ -294,6 +294,14 @@ header.site {
   border-top: 1px solid var(--grid);
 }
 .chip-menu .yearpick, .chip-menu .custompick { padding: 4px 10px 8px; }
+/* "Since last visit" window preset (v11) — disabled + a muted hint when
+   there's no eligible baseline yet (first visit / too fresh / safety-valve
+   reset — see computeVisitBaseline() in app.js). */
+.chip-menu-item:disabled, .chip-menu-item.disabled {
+  color: var(--muted); cursor: default; opacity: 0.75;
+}
+.chip-menu-item:disabled:hover, .chip-menu-item.disabled:hover { background: none; }
+.chip-menu-hint { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; margin-top: 1px; }
 
 /* "⋯" overflow menu — always holds Theme + About; on mobile it additionally
    picks up Favourites/Display/3D (their OWN standalone header buttons hide
@@ -368,9 +376,16 @@ body:not([data-cardstyle="basic"]) .tcard::before {
 /* .jright stacks two rows — [count + "View all"] then the sparkline below —
    so "View all" sits inline next to the count instead of directly on top of
    the sparkline (it used to stack as a 3rd row right above the graph, which
-   read as crowding/overlapping it on narrower cards). */
+   read as crowding/overlapping it on narrower cards). jright-top wraps
+   (v11) — without a wrap allowance here, its own natural (unwrapped) width
+   becomes a hard floor on .jright's min-content size that .jhead's flex
+   layout won't shrink below, so an added "+N new" chip (v11) can push
+   "View all" straight past the card's right edge, silently clipped by the
+   card's own overflow:hidden rather than actually appearing. Wrapping lets
+   it drop to a second line instead at normal desktop card widths, well
+   before the narrow-card container query below kicks in. */
 .jright { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.jright-top { display: flex; align-items: center; gap: 8px; }
+.jright-top { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; justify-content: flex-end; }
 .viewall {
   border: 1px solid var(--baseline); background: var(--surface); color: var(--ink-2);
   border-radius: 6px; padding: 2px 8px; font-size: 11px; white-space: nowrap;
@@ -378,6 +393,14 @@ body:not([data-cardstyle="basic"]) .tcard::before {
 .viewall:hover { background: var(--accent-soft); }
 .jcount { color: var(--ink-2); font-size: 12px; white-space: nowrap; }
 .jcount b { font-size: 15px; color: var(--ink); }
+/* "+N new" glanceable count (v11) — journal card headers only, next to the
+   "N in window" count; absent entirely when there's nothing new (no chip,
+   no layout shift). */
+.newchip {
+  display: inline-flex; align-items: center; background: var(--accent); color: #fff;
+  border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 700;
+  white-space: nowrap; letter-spacing: 0.02em;
+}
 .spark { display: block; }
 .spark rect { fill: var(--jc, var(--accent)); }
 
@@ -413,10 +436,11 @@ body:not([data-cardstyle="basic"]) .tcard::before {
   .jmeta { font-size: 10px; }
   .rankbadge { min-width: 24px; height: 24px; font-size: 11.5px; border-radius: 7px; }
   .jright { flex: 1 1 100%; margin-left: 0; align-items: flex-start; gap: 2px; }
-  .jright-top { gap: 6px; }
+  .jright-top { gap: 4px 6px; flex-wrap: wrap; }
   .spark { display: none; }
   .jcount { font-size: 10.5px; }
   .jcount b { font-size: 12.5px; }
+  .newchip { font-size: 9.5px; padding: 1px 6px; }
   .viewall { padding: 1px 6px; font-size: 10px; }
   .jbody { padding: 2px 10px 6px; }
   .paper { padding: 6px 3px; }
@@ -458,6 +482,13 @@ body:not([data-cardstyle="basic"]) .tcard::before {
 .paper:last-child { border-bottom: 0; }
 .paper:hover { background: var(--accent-soft); }
 .ptitle { font-weight: 600; font-size: 15px; color: var(--ink); line-height: 1.3; }
+/* "new since your last visit" accent dot (v11) — shared by paperRow(), so
+   venue/topic/All/favourites/search-results/journal-popout all get it for
+   free. Absent entirely when a paper isn't flagged new (no reserved space). */
+.newdot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); margin-right: 6px; vertical-align: middle; flex: 0 0 auto;
+}
 .pmeta { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
 .pmeta .pj { color: var(--ink-2); font-weight: 550; }
 /* "Hide authors & dates" display toggle (task 4/v9) — .pmeta is the shared

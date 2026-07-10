@@ -80,6 +80,64 @@ async function openAboutMenu(pg) {
   await pg.waitForTimeout(150);
 }
 
+// -------------------------------------------------- v11 "since last visit" --
+// _visitDebug()/fnv1aHash() are read-only/pure testing hooks app.js exports
+// purely for this kind of assertion (same pattern as threeview.js's
+// _debugState()/_screenPosOf() below) — re-importing app.js by URL resolves
+// to the SAME already-running module instance (ES module caching is
+// per-resolved-URL), so this reads genuinely live state.
+async function visitDebug(pg) {
+  return pg.evaluate(async () => {
+    const m = await import(new URL("./js/app.js", location.href).href);
+    return m._visitDebug();
+  });
+}
+// Overwrites the philosopheed:seen baseline with a crafted one built from
+// the REAL current recent.json + journals.json (fetched fresh each time, so
+// this stays correct even as the underlying data changes over time) —
+// dropping `dropCount` dois from a single low-volume, current-window,
+// general-mode journal (so the resulting "new" set lands entirely on ONE
+// journal card, inside its PREVIEW slice, making both the "+N new" chip sum
+// and the rendered .newdot count exactly assertable), or a `dropFraction`
+// of ALL dois (for the safety-valve case, where landing on one journal
+// doesn't matter). Returns bookkeeping for the caller to assert against.
+async function craftBaseline(pg, { ageMs, dropCount = null, dropFraction = null }) {
+  return pg.evaluate(async ({ ageMs, dropCount, dropFraction }) => {
+    const m = await import(new URL("./js/app.js", location.href).href);
+    const [recent, registry] = await Promise.all([
+      fetch(new URL("./data/recent.json", location.href).href).then((r) => r.json()),
+      fetch(new URL("./data/journals.json", location.href).href).then((r) => r.json()),
+    ]);
+    const allDois = recent.map((r) => r.doi);
+    let dropSet, targetJournal = null;
+    if (dropFraction != null) {
+      const dropN = Math.ceil(allDois.length * dropFraction);
+      dropSet = new Set(allDois.slice(0, dropN));
+    } else {
+      const generalIds = new Set(registry.journals.filter((j) => j.modes.includes("general")).map((j) => j.id));
+      const cut = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10); // matches the app's own 365d window math
+      const eligible = recent.filter((r) => generalIds.has(r.journal) && r.published >= cut);
+      const byJournal = new Map();
+      eligible.forEach((r) => {
+        if (!byJournal.has(r.journal)) byJournal.set(r.journal, []);
+        byJournal.get(r.journal).push(r);
+      });
+      // a journal with enough eligible papers to drop `dropCount` from, but
+      // few enough to stay comfortably inside the PREVIEW(200) render cap
+      const candidate = [...byJournal.entries()].find(([, rows]) => rows.length >= dropCount && rows.length <= 150);
+      if (!candidate) throw new Error("craftBaseline: no suitable low-volume journal found for dropCount=" + dropCount);
+      targetJournal = candidate[0];
+      dropSet = new Set(candidate[1].slice(0, dropCount).map((r) => r.doi));
+    }
+    const keepIds = allDois.filter((d) => !dropSet.has(d)).map((d) => m.fnv1aHash(d));
+    localStorage.setItem("philosopheed:seen", JSON.stringify({ ts: Date.now() - ageMs, ids: keepIds }));
+    return { totalDois: allDois.length, droppedCount: dropSet.size, targetJournal };
+  }, { ageMs, dropCount, dropFraction });
+}
+async function seenStorage(pg) {
+  return pg.evaluate(() => JSON.parse(localStorage.getItem("philosopheed:seen") || "null"));
+}
+
 await page.goto(BASE, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/01-venue.png` }); // default view: book-style cards, light mode
@@ -1157,8 +1215,163 @@ await pp.screenshot({ path: `${OUT}/v9-09b-favorites-persisted-general-mode.png`
 
 await persCtx.close();
 
+// ==================================================== v11: since last visit ==
+// Own isolated context (own localStorage) throughout, same reasoning as the
+// persistence block above. K = the number of dois crafted "missing" from
+// the baseline in the cases that need a concrete, assertable new-count.
+const K = 3;
+const v11Errors = [];
+const v11Ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
+const vp = await v11Ctx.newPage();
+vp.on("console", (m) => { if (m.type() === "error") v11Errors.push(m.text()); });
+vp.on("pageerror", (e) => v11Errors.push(String(e)));
+
+// v11-01: first visit — no markers anywhere, baseline stored silently.
+await vp.goto(BASE, { waitUntil: "networkidle" });
+await vp.waitForTimeout(800);
+{
+  const dotCount = await vp.locator(".newdot").count();
+  const chipCount = await vp.locator(".newchip").count();
+  const stored = await seenStorage(vp);
+  const tsFresh = stored && Math.abs(Date.now() - stored.ts) < 15000;
+  const idsOk = stored && Array.isArray(stored.ids) && stored.ids.length > 0;
+  const pass = dotCount === 0 && chipCount === 0 && tsFresh && idsOk;
+  console.log(`v11-01: first visit — dots=${dotCount} chips=${chipCount} (expect 0,0), ` +
+    `stored philosopheed:seen ts fresh=${tsFresh} ids.length=${stored?.ids?.length ?? "null"} -> ${pass ? "PASS" : "FAIL"}`);
+  await vp.screenshot({ path: `${OUT}/v11-01-first-visit-no-markers.png` });
+}
+
+// v11-02: crafted 8h-old baseline missing K ids (all from one low-volume,
+// current-window, general-mode journal) — "+K new" chip on that one card,
+// exactly K .newdot rows, nowhere else.
+let craftInfo;
+{
+  craftInfo = await craftBaseline(vp, { ageMs: 8 * 3600e3, dropCount: K });
+  await vp.reload({ waitUntil: "networkidle" });
+  await vp.waitForTimeout(800);
+  const dbg = await visitDebug(vp);
+  const dotCount = await vp.locator(".newdot").count();
+  const newChipSum = await vp.evaluate(() =>
+    [...document.querySelectorAll(".newchip")].reduce((sum, el) => sum + (parseInt(el.textContent, 10) || 0), 0));
+  const newChipCards = await vp.locator(".newchip").count();
+  const pass = dbg.sinceVisitEligible === true && dbg.newCount === K &&
+    newChipSum === K && dotCount === K && newChipCards === 1;
+  console.log(`v11-02: crafted baseline (journal=${craftInfo.targetJournal}, dropped=${craftInfo.droppedCount}) — ` +
+    `_visitDebug=${JSON.stringify(dbg)}, newChipSum=${newChipSum} (1 card), dotCount=${dotCount} -> ${pass ? "PASS" : "FAIL"} (expect eligible=true, newCount=${K}, chipSum=${K}, dots=${K})`);
+  await vp.locator(".jcard").filter({ has: vp.locator(".newchip") }).first().scrollIntoViewIfNeeded();
+  await vp.screenshot({ path: `${OUT}/v11-02-new-markers.png` });
+}
+
+// v11-03: Window chip menu — "Since last visit" enabled; selecting it
+// filters ALL views to only new papers; chip label updates; count == K.
+{
+  await openWinMenu(vp);
+  await vp.waitForTimeout(150);
+  const menuState = await vp.evaluate(() => {
+    const b = document.querySelector("#win-menu-since-visit");
+    return { disabled: b.disabled, ariaDisabled: b.getAttribute("aria-disabled"), text: b.textContent.trim() };
+  });
+  console.log(`v11-03: "Since last visit" menu entry state: ${JSON.stringify(menuState)} (expect disabled=false, no "(no earlier visit yet)" hint)`);
+  await vp.screenshot({ path: `${OUT}/v11-03a-since-visit-menu-enabled.png` });
+  await vp.locator("#win-menu-since-visit").click();
+  await vp.waitForTimeout(400);
+  const chipVal = await vp.locator("#chip-win .chip-val").innerText();
+  const rowCount = await vp.locator(".jbody .paper").count();
+  const pass = chipVal === "since last visit" && rowCount === K && !menuState.disabled;
+  console.log(`v11-03: after selecting — chip label="${chipVal}" (expect "since last visit"), rendered .paper rows=${rowCount} (expect ${K}) -> ${pass ? "PASS" : "FAIL"}`);
+  await vp.screenshot({ path: `${OUT}/v11-03b-since-visit-filtered.png` });
+}
+
+// v11-04: reload after v11-03 — window pref restored to the previous REAL
+// window (12 mo, the default — never touched by the since-last-visit
+// toggle), NOT stuck showing "since last visit".
+{
+  await vp.reload({ waitUntil: "networkidle" });
+  await vp.waitForTimeout(800);
+  const chipVal = await vp.locator("#chip-win .chip-val").innerText();
+  const dbg = await visitDebug(vp);
+  const rowCount = await vp.locator(".jbody .paper, .allbody .paper").count();
+  const pass = chipVal === "12 mo" && dbg.sinceLastVisit === false && rowCount > K;
+  console.log(`v11-04: after reload — chip label="${chipVal}" (expect "12 mo"), sinceLastVisit=${dbg.sinceLastVisit} (expect false), rows=${rowCount} (expect >${K}) -> ${pass ? "PASS" : "FAIL"}`);
+  await vp.screenshot({ path: `${OUT}/v11-04-window-restored-after-reload.png` });
+}
+
+// v11-05: baseline only 30 min old — no markers, and the baseline is NOT
+// rolled forward (persisted ts unchanged by the reload).
+{
+  await vp.evaluate(() => localStorage.clear());
+  await vp.reload({ waitUntil: "networkidle" }); // fresh "first visit" — establishes a clean baseline to overwrite
+  await vp.waitForTimeout(600);
+  await craftBaseline(vp, { ageMs: 30 * 60e3, dropCount: 2 });
+  const before = await seenStorage(vp);
+  await vp.reload({ waitUntil: "networkidle" });
+  await vp.waitForTimeout(800);
+  const after = await seenStorage(vp);
+  const dbg = await visitDebug(vp);
+  const dotCount = await vp.locator(".newdot").count();
+  const tsUnchanged = before && after && before.ts === after.ts;
+  const pass = dotCount === 0 && dbg.sinceVisitEligible === false && tsUnchanged;
+  console.log(`v11-05: 30min-old baseline — dots=${dotCount} (expect 0), eligible=${dbg.sinceVisitEligible} (expect false), ` +
+    `stored ts before=${before?.ts} after=${after?.ts} unchanged=${tsUnchanged} -> ${pass ? "PASS" : "FAIL"}`);
+  await vp.screenshot({ path: `${OUT}/v11-05-fresh-baseline-not-rolled.png` });
+}
+
+// v11-06: safety valve — 90% of ids missing (corrupt/ancient-looking
+// baseline) — no markers, baseline reset immediately regardless of age.
+{
+  await vp.evaluate(() => localStorage.clear());
+  await vp.reload({ waitUntil: "networkidle" }); // fresh first-visit baseline to overwrite
+  await vp.waitForTimeout(600);
+  await craftBaseline(vp, { ageMs: 8 * 3600e3, dropFraction: 0.9 });
+  const before = await seenStorage(vp);
+  await vp.reload({ waitUntil: "networkidle" });
+  await vp.waitForTimeout(800);
+  const after = await seenStorage(vp);
+  const dbg = await visitDebug(vp);
+  const dotCount = await vp.locator(".newdot").count();
+  const chipCount = await vp.locator(".newchip").count();
+  const resetHappened = after && before && after.ts > before.ts + 6 * 3600e3 - 5000; // bumped forward well past the crafted 8h-old ts
+  const pass = dotCount === 0 && chipCount === 0 && dbg.sinceVisitEligible === false && resetHappened;
+  console.log(`v11-06: safety valve (90% missing) — dots=${dotCount} chips=${chipCount} (expect 0,0), eligible=${dbg.sinceVisitEligible} (expect false), ` +
+    `baseline ts before=${before?.ts} after=${after?.ts} reset=${resetHappened} -> ${pass ? "PASS" : "FAIL"}`);
+  await vp.screenshot({ path: `${OUT}/v11-06-safety-valve-reset.png` });
+}
+
+await v11Ctx.close();
+
+// v11-07: mobile portrait (390×844) with an 8h-old baseline missing K ids —
+// "+N new" visible on a card without breaking the header/card layout.
+const v11MobileErrors = [];
+const v11MCtx = await browser.newContext({
+  viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+  deviceScaleFactor: 3, userAgent: IPHONE_UA,
+});
+const vm = await v11MCtx.newPage();
+vm.on("console", (m) => { if (m.type() === "error") v11MobileErrors.push(m.text()); });
+vm.on("pageerror", (e) => v11MobileErrors.push(String(e)));
+{
+  await vm.goto(BASE, { waitUntil: "networkidle" }); // first visit — establishes baseline
+  await vm.waitForTimeout(600);
+  const info = await craftBaseline(vm, { ageMs: 8 * 3600e3, dropCount: K });
+  await vm.reload({ waitUntil: "networkidle" });
+  await vm.waitForTimeout(800);
+  const dotCount = await vm.locator(".newdot").count();
+  const chipCount = await vm.locator(".newchip").count();
+  const overflow = await vm.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  const cardEl = vm.locator(".jcard").filter({ has: vm.locator(".newchip") }).first();
+  const headBox = await cardEl.locator(".jhead").boundingBox();
+  const pass = dotCount === K && chipCount === 1 && overflow <= 0 && !!headBox;
+  console.log(`v11-07: mobile portrait (journal=${info.targetJournal}) — dots=${dotCount} (expect ${K}), chips=${chipCount} (expect 1), ` +
+    `horizontal overflow=${overflow}px (expect <=0), card head intact=${!!headBox} -> ${pass ? "PASS" : "FAIL"}`);
+  await vm.screenshot({ path: `${OUT}/v11-07a-mobile-new-markers.png` });
+  await cardEl.locator(".jhead").screenshot({ path: `${OUT}/v11-07b-mobile-newchip-head-closeup.png` });
+}
+await v11MCtx.close();
+
 await browser.close();
 console.log("console/page errors:", errors.length ? errors : "none");
 console.log("mobile console/page errors:", mobileErrors.length ? mobileErrors : "none");
 console.log("persistence-context console/page errors:", persErrors.length ? persErrors : "none");
-if (errors.length || mobileErrors.length || persErrors.length) process.exitCode = 1;
+console.log("v11 (since-last-visit) context console/page errors:", v11Errors.length ? v11Errors : "none");
+console.log("v11 mobile console/page errors:", v11MobileErrors.length ? v11MobileErrors : "none");
+if (errors.length || mobileErrors.length || persErrors.length || v11Errors.length || v11MobileErrors.length) process.exitCode = 1;
