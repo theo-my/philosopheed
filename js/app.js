@@ -1,43 +1,39 @@
 /* Philosopheed — dashboard app (no build step, ES modules). */
 import MiniSearch from "../vendor/minisearch.min.js";
 
-// ------------------------------------------------------------------ state --
-const S = {
-  registry: null,        // journals.json
-  stats: null,           // stats.json
-  recent: null,          // recent.json rows
-  yearCache: new Map(),  // year -> rows
-  mode: "general",
-  view: "venue",         // venue | topic | all
-  ranking: "db",         // db | leiter (general mode only; irrelevant when rankMode is "favorites")
-  rankMode: "normal",    // normal | favorites — "Favourites" is a ranking option layered on top of db/leiter/field
-  win: "365",            // '7'|'30'|'90'|'365'|'1826'|'all'|'year'|'custom'
-  year: 2020,
-  customN: 3,             // "Custom…" window: amount + unit (last applied value)
-  customUnit: "weeks",    // days | weeks | months | years
-  customApplied: false,   // has the user ever pressed "Go" on the custom picker?
-  query: "",
-  rows: [],              // rows for current window (all modes)
-  mini: null,            // MiniSearch instance over rows
-  three: null,           // threeview module (lazy)
-};
-
 // -------------------------------------------------------------- prefs (§8) --
-// ALL persisted display prefs live under one localStorage key, read once at
-// boot and written on every change. Favourites (+ their opt-in flag) are only
-// ever included in the stored object when the user has ticked "Save
-// favourites on this device" — unticking drops them from the very next write.
-// No cookies: nothing here is ever sent to a server.
+// ALL persisted state lives under ONE localStorage key, read once at boot
+// (before S is constructed, so the very first render already reflects it)
+// and written on every change (view/mode/ranking/window read live off S;
+// everything else off Prefs — see savePrefs() below). No cookies: nothing
+// here is ever sent to a server. Corrupt/absent/invalid values fall back to
+// the current defaults silently (see the validation at the bottom of
+// loadPrefs()) — a returning visitor never sees a broken UI because of a
+// stale or hand-edited localStorage value.
 const PREF_KEY = "philosopheed:prefs";
 const DEFAULT_PREFS = {
+  theme: null,             // null = follow system; "light" | "dark" = explicit
   serif: false,
-  feedWidth: "default",   // narrow | default | wide | max
+  feedWidth: "default",    // narrow | default | wide | max
   zoom: 100,
   cardW: 420,
   cardH: 430,
   cardStyle: "book",       // book | basic
+  hideAuthors: false,      // "Hide authors & dates" display toggle (task 4)
+  view: "venue",           // venue | topic | all | favorites
+  mode: "general",         // subfield
+  ranking: "db",           // db | leiter
+  rankMode: "normal",      // normal | favorites
+  win: "365",              // '7'|'30'|'90'|'365'|'1826'|'all'|'year'|'custom'
+  year: 2020,
+  customN: 3,
+  customUnit: "weeks",     // days | weeks | months | years
+  favorites: [],           // journal ids, in pick/drag order — persisted by default (v9)
 };
-const LEGACY_KEYS = { serif: "phd-serif", wide: "phd-wide", zoom: "phd-zoom", cardw: "phd-cardw", cardh: "phd-cardh" };
+const LEGACY_KEYS = {
+  serif: "phd-serif", wide: "phd-wide", zoom: "phd-zoom",
+  cardw: "phd-cardw", cardh: "phd-cardh", theme: "phd-theme",
+};
 
 function migrateLegacyPrefs() {
   const hasLegacy = Object.values(LEGACY_KEYS).some((k) => localStorage.getItem(k) !== null);
@@ -48,31 +44,74 @@ function migrateLegacyPrefs() {
   if (localStorage.getItem(LEGACY_KEYS.zoom) !== null) p.zoom = Number(localStorage.getItem(LEGACY_KEYS.zoom)) || 100;
   if (localStorage.getItem(LEGACY_KEYS.cardw) !== null) p.cardW = Number(localStorage.getItem(LEGACY_KEYS.cardw)) || 420;
   if (localStorage.getItem(LEGACY_KEYS.cardh) !== null) p.cardH = Number(localStorage.getItem(LEGACY_KEYS.cardh)) || 430;
+  if (localStorage.getItem(LEGACY_KEYS.theme) !== null) p.theme = localStorage.getItem(LEGACY_KEYS.theme);
   Object.values(LEGACY_KEYS).forEach((k) => localStorage.removeItem(k));
   return p;
 }
+
+const VALID_VIEWS = ["venue", "topic", "all", "favorites"];
+const VALID_WINS = ["7", "30", "90", "365", "1826", "all", "year", "custom"];
+const VALID_UNITS = ["days", "weeks", "months", "years"];
 
 function loadPrefs() {
   let stored = null;
   try { stored = JSON.parse(localStorage.getItem(PREF_KEY) || "null"); } catch { stored = null; }
   if (!stored) stored = migrateLegacyPrefs();
   const p = { ...DEFAULT_PREFS, ...(stored || {}) };
-  p.favoritesEnabled = !!(stored && stored.favoritesEnabled);
-  p.favorites = (stored && p.favoritesEnabled && Array.isArray(stored.favorites)) ? stored.favorites.slice() : [];
+  p.favorites = Array.isArray(p.favorites) ? p.favorites.slice() : [];
+  if (p.theme !== "light" && p.theme !== "dark") p.theme = null;
+  if (!VALID_VIEWS.includes(p.view)) p.view = "venue";
+  if (typeof p.mode !== "string" || !p.mode) p.mode = "general"; // re-checked against the registry once loaded
+  if (p.ranking !== "db" && p.ranking !== "leiter") p.ranking = "db";
+  if (p.rankMode !== "normal" && p.rankMode !== "favorites") p.rankMode = "normal";
+  if (!VALID_WINS.includes(p.win)) p.win = "365";
+  if (!Number.isFinite(p.year)) p.year = 2020;
+  if (!Number.isFinite(p.customN) || p.customN < 1) p.customN = 3;
+  if (!VALID_UNITS.includes(p.customUnit)) p.customUnit = "weeks";
+  if (!Number.isFinite(p.zoom)) p.zoom = 100;
+  if (!Number.isFinite(p.cardW)) p.cardW = 420;
+  if (!Number.isFinite(p.cardH)) p.cardH = 430;
+  if (p.feedWidth !== "narrow" && p.feedWidth !== "default" && p.feedWidth !== "wide" && p.feedWidth !== "max") p.feedWidth = "default";
+  if (p.cardStyle !== "book" && p.cardStyle !== "basic") p.cardStyle = "book";
+  p.serif = !!p.serif;
+  p.hideAuthors = !!p.hideAuthors;
   return p;
 }
 
 const Prefs = loadPrefs();
 
+// ------------------------------------------------------------------ state --
+const S = {
+  registry: null,        // journals.json
+  stats: null,           // stats.json
+  recent: null,          // recent.json rows
+  yearCache: new Map(),  // year -> rows
+  mode: Prefs.mode,
+  view: Prefs.view,       // venue | topic | all | favorites
+  ranking: Prefs.ranking, // db | leiter (general mode only; irrelevant when rankMode is "favorites")
+  rankMode: Prefs.rankMode, // normal | favorites — "Favourites" is a ranking option layered on top of db/leiter/field
+  win: Prefs.win,         // '7'|'30'|'90'|'365'|'1826'|'all'|'year'|'custom'
+  year: Prefs.year,
+  customN: Prefs.customN,   // "Custom…" window: amount + unit (last applied value)
+  customUnit: Prefs.customUnit, // days | weeks | months | years
+  customApplied: Prefs.win === "custom", // has the user ever applied the custom picker?
+  query: "",
+  rows: [],              // rows for current window (all modes)
+  mini: null,            // MiniSearch instance over rows
+  three: null,           // threeview module (lazy)
+};
+
+// savePrefs() reads session-y state straight off S (view/mode/ranking/window)
+// so it's never duplicated between S and Prefs — only display-only settings
+// and favourites actually LIVE on Prefs.
 function savePrefs() {
   const toStore = {
-    serif: Prefs.serif, feedWidth: Prefs.feedWidth, zoom: Prefs.zoom,
-    cardW: Prefs.cardW, cardH: Prefs.cardH, cardStyle: Prefs.cardStyle,
+    theme: Prefs.theme, serif: Prefs.serif, feedWidth: Prefs.feedWidth, zoom: Prefs.zoom,
+    cardW: Prefs.cardW, cardH: Prefs.cardH, cardStyle: Prefs.cardStyle, hideAuthors: Prefs.hideAuthors,
+    view: S.view, mode: S.mode, ranking: S.ranking, rankMode: S.rankMode,
+    win: S.win, year: S.year, customN: S.customN, customUnit: S.customUnit,
+    favorites: Prefs.favorites,
   };
-  if (Prefs.favoritesEnabled) {
-    toStore.favoritesEnabled = true;
-    toStore.favorites = Prefs.favorites;
-  }
   localStorage.setItem(PREF_KEY, JSON.stringify(toStore));
 }
 
@@ -287,17 +326,40 @@ function rankBadge(j) {
   return `<span class="rankbadge">${r}</span>`;
 }
 
-// per-journal cover colour (from registry), with readable text on top
+// per-journal (or per-topic — see getTopicColor) cover colour, with readable
+// text on top
 export function textOn(hex) {
   const c = hex.replace("#", "");
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(c.slice(i, i + 2), 16));
   return (r * 299 + g * 587 + b * 114) / 1000 >= 150 ? "#0b0b0b" : "#ffffff";
 }
-function applyColor(node, j) {
-  if (j.color) {
-    node.style.setProperty("--jc", j.color);
-    node.style.setProperty("--jc-text", textOn(j.color));
+function applyColor(node, hex) {
+  if (hex) {
+    node.style.setProperty("--jc", hex);
+    node.style.setProperty("--jc-text", textOn(hex));
   }
+}
+
+// Topic-section colour coding (task 5, v9) — reuses the SAME per-journal
+// colour list already in data/journals.json (no invented palette), spread
+// evenly across a fixed topic order so adjacent/related topics (e.g. Ethics
+// vs Political philosophy) land on visually distinct colours rather than
+// neighbouring shades. Stable across reloads: both the topic order
+// (TOPIC_LABELS' own key order) and the colour list (deduped + sorted) are
+// deterministic given the same registry data. Memoized once the registry is
+// available (renderTopic() only ever runs after loadCore() resolves).
+let topicColorMap = null;
+function getTopicColor(topicId) {
+  if (!topicColorMap) {
+    const colors = [...new Set(S.registry.journals.map((j) => j.color).filter(Boolean))].sort();
+    const ids = Object.keys(TOPIC_LABELS);
+    const step = colors.length / ids.length;
+    topicColorMap = new Map();
+    ids.forEach((id, i) => {
+      if (colors.length) topicColorMap.set(id, colors[Math.floor(i * step) % colors.length]);
+    });
+  }
+  return topicColorMap.get(topicId);
 }
 
 function paperRow(r, showJournal) {
@@ -367,7 +429,7 @@ const PREVIEW = 200;   // rows per scrollable card (6 visible, rest on scroll)
 // sparklines, "View all", and expand behaviour for free.
 function buildJournalCard(j, papers) {
   const card = el("div", "jcard");
-  applyColor(card, j);
+  applyColor(card, j.color);
   const ceased = j.active === false ? `<span class="jceased">ceased</span>` : "";
   const head = el("div", "jhead");
   head.innerHTML = `${rankBadge(j)}
@@ -503,6 +565,10 @@ function closeJournalModal() { $("#journal-overlay").classList.remove("show"); }
 // (respects the card-height slider), but are mixed-journal — so they never
 // get volume separators, and stay full-width rather than joining the card
 // grid (topic bodies routinely run to hundreds of rows across many venues).
+// Each topic also gets its own stable accent colour (task 5, v9) via
+// getTopicColor()/applyColor(), the SAME mechanism + CSS the venue cards
+// use for their spine/top-bar accent — so it "just works" in both card
+// styles and both themes with no new CSS.
 function renderTopic(rows) {
   const byT = new Map();
   rows.forEach((r) => {
@@ -517,6 +583,7 @@ function renderTopic(rows) {
   for (const t of order) {
     const papers = byT.get(t).sort((a, b) => b.published.localeCompare(a.published));
     const card = el("div", "jcard tcard");
+    applyColor(card, getTopicColor(t));
     const head = el("div", "jhead");
     head.innerHTML = `<div><div class="jname">${esc(TOPIC_LABELS[t])}</div></div>
       <div class="jright"><span class="jcount"><b>${papers.length}</b> in window</span></div>`;
@@ -726,9 +793,9 @@ function openAbout() {
       popular ranking of philosophy journals, so I include it here, too. Most recent is 2022
       (~1000 participants). Ties share a rank.
       <a href="${esc(m.rankings.leiter.url)}" target="_blank" rel="noopener">source ↗</a></li>
-      <li><b>Favourites</b> — Pick your favourites! If you want to keep them for future visits,
-      tick "Save favourites on this device" in the Favourites menu — they're stored only in
-      your browser, never sent anywhere.</li>
+      <li><b>Favourites</b> — Pick your favourites in the header menu! They're saved
+      automatically in your browser (never sent anywhere), so they're there again next time
+      you visit.</li>
     </ul>
     <h3>Modes</h3>
     <ul>${Object.values(m.modes).map((x) => `<li><b>${esc(x.label)}</b> — ${esc(x.basis)}</li>`).join("")}</ul>
@@ -788,6 +855,29 @@ async function refresh() {
 }
 
 // ------------------------------------------------------------------ chrome --
+// Shared popover/menu plumbing (v9): every dropdown-ish panel in the header —
+// the Favourites/Display popovers, the chip menus (View/Subfield/Ranking/
+// Window), and the "⋯" overflow menu — registers itself here so there's ONE
+// "close everything else" / "click outside closes it" / Esc mechanism for
+// the whole header, rather than each popover reinventing its own.
+let OPEN_PANELS = [];
+function registerPanel(panel, btn) { if (panel) OPEN_PANELS.push({ panel, btn }); }
+function closeAllPopovers() {
+  OPEN_PANELS.forEach(({ panel, btn }) => {
+    panel.classList.remove("show");
+    btn?.setAttribute("aria-expanded", "false");
+  });
+}
+function openPopover(panel, btn) {
+  const isOpen = panel.classList.contains("show");
+  closeAllPopovers();
+  if (!isOpen) { panel.classList.add("show"); btn?.setAttribute("aria-expanded", "true"); }
+}
+function setChipValue(chipId, text) {
+  const val = document.querySelector(`#${chipId} .chip-val`);
+  if (val) val.textContent = text;
+}
+
 function segButtons(container, items, onPick) {
   container.innerHTML = "";
   items.forEach(({ id, label, on }) => {
@@ -803,8 +893,8 @@ function segButtons(container, items, onPick) {
 }
 
 // Ranking options depend on mode (general: db/leiter/favourites; field
-// modes: field/favourites) — shared by the segmented row AND its compact
-// dropdown equivalent (task 12), so both always agree on what's on offer.
+// modes: field/favourites) — shared by the Ranking chip menu AND the 3D
+// HUD's own segmented row, so both always agree on what's on offer.
 function rankOptions() {
   return S.mode !== "general"
     ? [
@@ -823,22 +913,34 @@ function applyRanking(id) {
   syncRankControls();
   refresh();
   S.three?.setRanking?.();
+  savePrefs();
 }
 function buildRankSeg(container) {
-  segButtons(container, rankOptions(), applyRanking);
+  if (container) segButtons(container, rankOptions(), applyRanking);
 }
-function buildRankDropdown() {
-  const select = $("#rank-dd");
-  if (!select) return;
-  select.innerHTML = rankOptions()
-    .map((o) => `<option value="${o.id}"${o.on ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+// Rebuilds the Ranking chip's menu items (fresh nodes each time — cheap,
+// avoids stale-listener bugs) while leaving the basis-note caption in place.
+function buildRankChipMenu() {
+  const menu = $("#menu-rank");
+  if (!menu) return;
+  const caption = $("#basis-note");
+  menu.querySelectorAll(".chip-menu-item").forEach((n) => n.remove());
+  const opts = rankOptions();
+  opts.forEach((o) => {
+    const b = el("button", `chip-menu-item${o.on ? " on" : ""}`, esc(o.label));
+    b.setAttribute("role", "menuitemradio");
+    b.setAttribute("aria-checked", o.on ? "true" : "false");
+    b.addEventListener("click", () => { applyRanking(o.id); closeAllPopovers(); });
+    menu.insertBefore(b, caption);
+  });
+  const current = opts.find((o) => o.on);
+  setChipValue("chip-rank", current ? current.label : "");
 }
-// Keeps the 2D segmented row, the compact dropdown, AND the 3D HUD's own
-// segmented row all in sync — call this everywhere ranking state changes.
+// Keeps the Ranking chip menu AND the 3D HUD's own segmented row in sync —
+// call this everywhere ranking state (or the mode it depends on) changes.
 function syncRankControls() {
-  buildRankSeg($("#rank-seg"));
   buildRankSeg($("#rank-seg-3d"));
-  buildRankDropdown();
+  buildRankChipMenu();
 }
 
 function initChrome() {
@@ -847,47 +949,63 @@ function initChrome() {
   if ("ontouchstart" in window || navigator.maxTouchPoints > 0) {
     document.body.classList.add("touch-device");
   }
-  // Subfield (field mode): general / ethics-political / phil-science /
-  // tech-AI — same segmented-row + compact-dropdown pairing as View/Ranking/
-  // Window (setMode mirrors setView/setWindow below), so changing it via
-  // either control always keeps both, plus rank options / basis-note / the
-  // 3D view / the favourites list, in sync.
+
+  // Restored mode might not exist in this registry build (renamed/removed
+  // subfield, or corrupt storage) — fall back to General silently.
   const modes = S.registry.meta.modes;
-  function buildModeSeg() {
-    segButtons($("#mode-seg"),
-      Object.keys(modes).map((id) => ({ id, label: modes[id].label, on: id === S.mode })),
-      setMode);
-  }
-  function buildModeDropdown() {
-    $("#mode-dd").innerHTML = Object.keys(modes)
-      .map((id) => `<option value="${id}"${id === S.mode ? " selected" : ""}>${esc(modes[id].label)}</option>`)
-      .join("");
+  if (!modes[S.mode]) S.mode = "general";
+
+  // -------------------------------------------------------- chip: Subfield --
+  function buildModeChipMenu() {
+    const menu = $("#menu-mode");
+    menu.innerHTML = "";
+    Object.keys(modes).forEach((id) => {
+      const on = id === S.mode;
+      const b = el("button", `chip-menu-item${on ? " on" : ""}`, esc(modes[id].label));
+      b.setAttribute("role", "menuitemradio");
+      b.setAttribute("aria-checked", on ? "true" : "false");
+      b.addEventListener("click", () => { setMode(id); closeAllPopovers(); });
+      menu.append(b);
+    });
+    setChipValue("chip-mode", modes[S.mode]?.label || "");
   }
   function setMode(id) {
     S.mode = id;
-    buildModeSeg();
-    $("#mode-dd").value = id;
+    buildModeChipMenu();
     syncRankControls();
     refresh();
     S.three?.setMode?.();
     renderFavoritesList();
+    savePrefs();
   }
-  buildModeSeg();
-  buildModeDropdown();
-  $("#mode-dd").addEventListener("change", (e) => setMode(e.target.value));
+  buildModeChipMenu();
   syncRankControls();
-  $("#rank-dd").addEventListener("change", (e) => applyRanking(e.target.value));
 
-  // View: By venue / By topic / All / Favourites — segmented row (wide
-  // viewports) + compact dropdown (task 12's breakpoint), always in sync.
+  // ------------------------------------------------------------- chip: View --
+  const VIEW_OPTIONS = [
+    { id: "venue", label: "By venue" }, { id: "topic", label: "By topic" },
+    { id: "all", label: "All" }, { id: "favorites", label: "Favourites" },
+  ];
+  function buildViewChipMenu() {
+    const menu = $("#menu-view");
+    menu.innerHTML = "";
+    VIEW_OPTIONS.forEach((o) => {
+      const on = o.id === S.view;
+      const b = el("button", `chip-menu-item${on ? " on" : ""}`, esc(o.label));
+      b.setAttribute("role", "menuitemradio");
+      b.setAttribute("aria-checked", on ? "true" : "false");
+      b.addEventListener("click", () => { setView(o.id); closeAllPopovers(); });
+      menu.append(b);
+    });
+    setChipValue("chip-view", VIEW_OPTIONS.find((o) => o.id === S.view)?.label || "");
+  }
   function setView(v) {
     S.view = v;
-    $("#view-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === v));
-    $("#view-dd").value = v;
+    buildViewChipMenu();
     refresh();
+    savePrefs();
   }
-  $("#view-seg").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => setView(b.dataset.v)));
-  $("#view-dd").addEventListener("change", (e) => setView(e.target.value));
+  buildViewChipMenu();
 
   const nowYear = new Date().getFullYear();
   const covNote = $("#cov-note");
@@ -900,32 +1018,53 @@ function initChrome() {
     covNote.classList.toggle("show", beyond5);
   }
 
-  // Window: same segmented-row + compact-dropdown pairing as View. The
-  // typed-year (#yearpick) and custom-window (#custompick) inline inputs
-  // stay reachable regardless of which control picked "Year…"/"Custom…" —
-  // they're shown/hidden off S.win, not off which UI triggered it.
+  // ----------------------------------------------------------- chip: Window --
+  // Window chip menu: 6 fixed presets + "Pick a year…"/"Custom…", which
+  // reveal the existing inline #yearpick/#custompick controls (now living
+  // inside #menu-win) and — unlike the presets — deliberately keep the menu
+  // open so the user can type before Enter/"Go" applies + closes it. The
+  // chip label reflects the APPLIED state (e.g. "2019", "3 weeks"), not the
+  // menu item's own (static) label.
+  const WIN_PRESETS = { 7: "7 d", 30: "30 d", 90: "90 d", 365: "12 mo", 1826: "5 yr", all: "Since 2000" };
+  function winChipLabel() {
+    if (S.win === "year") return String(S.year);
+    if (S.win === "custom") return customWindowLabel();
+    return WIN_PRESETS[S.win] || "12 mo";
+  }
+  function buildWinChipMenu() {
+    $("#menu-win").querySelectorAll(".chip-menu-item[data-preset]").forEach((b) => {
+      const on = b.dataset.preset === S.win;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+    $("#win-menu-year-toggle").classList.toggle("on", S.win === "year");
+    $("#win-menu-custom-toggle").classList.toggle("on", S.win === "custom");
+    setChipValue("chip-win", winChipLabel());
+  }
   function setWindow(id) {
     S.win = id;
-    $("#win-seg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.w === id));
-    $("#win-dd").value = id;
     $("#yearpick").classList.toggle("show", id === "year");
     $("#custompick").classList.toggle("show", id === "custom");
+    buildWinChipMenu();
     updateCoverageNote();
     refresh();
+    savePrefs();
   }
-  $("#win-seg").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => setWindow(b.dataset.w)));
-  $("#win-dd").addEventListener("change", (e) => setWindow(e.target.value));
+  $("#menu-win").querySelectorAll(".chip-menu-item[data-preset]").forEach((b) => {
+    b.addEventListener("click", () => { setWindow(b.dataset.preset); closeAllPopovers(); });
+  });
 
   // custom time window: "last X <unit>" — small inline UI in the same style
-  // as the typed-year control. Applying (Enter, blur or "Go") validates to a
-  // positive integer, capped so the resulting window can't run past the
-  // archive's start year (2000), then updates the "Custom…" seg button's own
-  // label to reflect the applied value (e.g. "Custom: 3 weeks").
+  // as the typed-year control, now living inside the Window chip's menu.
+  // Applying (Enter, blur, or "Go") validates to a positive integer, capped
+  // so the resulting window can't run past the archive's start year (2000),
+  // then updates the WINDOW CHIP's own label to reflect the applied value
+  // (e.g. "3 weeks") — Enter/"Go" additionally close the menu; a plain blur
+  // (e.g. tabbing to the unit select) does not, so the menu stays open while
+  // the user is still adjusting it.
   const customNInput = $("#custom-n");
   const customUnitSelect = $("#custom-unit");
   const customApplyBtn = $("#custom-apply");
-  const customSegBtn = $("#win-custom");
-  const customDdOpt = $("#win-dd-custom-opt");
   function applyCustom() {
     let n = Math.round(Number(customNInput.value));
     if (!Number.isFinite(n) || n < 1) n = 1;
@@ -936,14 +1075,14 @@ function initChrome() {
     S.customN = n;
     S.customUnit = unit;
     S.customApplied = true;
-    customSegBtn.textContent = `Custom: ${customWindowLabel()}`;
-    customDdOpt.textContent = `Custom: ${customWindowLabel()}`;
+    buildWinChipMenu();
     if (S.win === "custom") { updateCoverageNote(); refresh(); }
+    savePrefs();
   }
-  customNInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyCustom(); } });
+  customNInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyCustom(); closeAllPopovers(); } });
   customNInput.addEventListener("blur", applyCustom);
   customUnitSelect.addEventListener("change", applyCustom);
-  customApplyBtn.addEventListener("click", applyCustom);
+  customApplyBtn.addEventListener("click", () => { applyCustom(); closeAllPopovers(); });
 
   // typed-year control (replaces the old scrubber): Enter, blur or the "Go"
   // button apply the value, clamped to the archive range.
@@ -955,39 +1094,84 @@ function initChrome() {
     if (!Number.isFinite(y)) y = S.year;
     y = Math.min(nowYear, Math.max(ARCHIVE_START_YEAR, y));
     yearInput.value = y;
-    if (y === S.year && S.win === "year") return;
+    if (y === S.year && S.win === "year") { buildWinChipMenu(); return; }
     S.year = y;
+    buildWinChipMenu();
     updateCoverageNote();
     refresh();
+    savePrefs();
   }
-  yearInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyYear(); } });
+  yearInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyYear(); closeAllPopovers(); } });
   yearInput.addEventListener("blur", applyYear);
-  yearApply.addEventListener("click", applyYear);
+  yearApply.addEventListener("click", () => { applyYear(); closeAllPopovers(); });
+
+  $("#win-menu-year-toggle").addEventListener("click", () => {
+    setWindow("year");
+    yearInput.focus(); yearInput.select();
+  });
+  $("#win-menu-custom-toggle").addEventListener("click", () => {
+    setWindow("custom");
+    customNInput.focus(); customNInput.select();
+  });
+
+  // reflect the restored year/custom values into the inline inputs, then
+  // render the window chip's initial state
+  yearInput.value = S.year;
+  customNInput.value = S.customN;
+  customUnitSelect.value = S.customUnit;
+  $("#yearpick").classList.toggle("show", S.win === "year");
+  $("#custompick").classList.toggle("show", S.win === "custom");
+  buildWinChipMenu();
   updateCoverageNote();
 
+  // --------------------------------------------------------------- search --
   let debounce;
   $("#search").addEventListener("input", (e) => {
     clearTimeout(debounce);
     debounce = setTimeout(() => { S.query = e.target.value.trim(); refresh(); }, 200);
   });
 
+  // mobile: search collapses to an icon; tapping it reveals a full-width
+  // input (CSS: body.search-open .searchbox), focused automatically. Only
+  // the icon itself or Esc hide it again (not an outside click — the user
+  // may be about to tap elsewhere in the results).
+  const searchToggleBtn = $("#btn-search-toggle");
+  const searchInput = $("#search");
+  function openMobileSearch() {
+    document.body.classList.add("search-open");
+    searchToggleBtn.setAttribute("aria-expanded", "true");
+    searchInput.focus();
+  }
+  function closeMobileSearch() {
+    document.body.classList.remove("search-open");
+    searchToggleBtn.setAttribute("aria-expanded", "false");
+  }
+  searchToggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (document.body.classList.contains("search-open")) closeMobileSearch();
+    else { closeAllPopovers(); openMobileSearch(); }
+  });
+
+  // ---------------------------------------------------------------- theme --
+  // Applied before paint via the inline <head> script (index.html) reading
+  // the same prefs key — this just keeps Prefs/the "⋯" menu label in sync
+  // with whatever's already on <html data-theme>, and persists future
+  // changes back into the single prefs key (theme is no longer its own
+  // separate localStorage entry — see LEGACY_KEYS.theme migration above).
   const effTheme = () => document.documentElement.dataset.theme ||
     (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  const themeBtn = $("#btn-theme");
-  const labelTheme = () => {
-    themeBtn.textContent = effTheme() === "dark" ? "Light mode" : "Dark mode";
-  };
-  themeBtn.addEventListener("click", () => {
-    const next = effTheme() === "dark" ? "light" : "dark";
+  const themeMenuItem = $("#menu-theme");
+  function labelTheme() {
+    themeMenuItem.textContent = effTheme() === "dark" ? "Light mode" : "Dark mode";
+  }
+  function setTheme(next) {
     document.documentElement.dataset.theme = next;
-    localStorage.setItem("phd-theme", next);
+    Prefs.theme = next;
+    savePrefs();
     labelTheme();
-  });
-  const saved = localStorage.getItem("phd-theme");
-  if (saved) document.documentElement.dataset.theme = saved;
+  }
   labelTheme();
 
-  $("#btn-about").addEventListener("click", openAbout);
   $("#paper-overlay").addEventListener("click", (e) => { if (e.target.id === "paper-overlay") closePaper(); });
   $("#about-overlay").addEventListener("click", (e) => { if (e.target.id === "about-overlay") $("#about-overlay").classList.remove("show"); });
   $("#journal-overlay").addEventListener("click", (e) => { if (e.target.id === "journal-overlay") closeJournalModal(); });
@@ -1000,21 +1184,17 @@ function initChrome() {
       if ($("#paper-overlay").classList.contains("show")) { closePaper(); return; }
       $("#about-overlay").classList.remove("show");
       closeJournalModal();
-      closeDisplayPopover();
-      closeFavoritesPopover();
+      closeAllPopovers();
+      closeMobileSearch();
     }
   });
 
   // ---------------------------------------------------------- display prefs --
-  // All of serif / feed width / zoom / card width / card height / card style
-  // (and, opt-in only, favourites + its flag) live in the single Prefs
-  // object, backed by one localStorage key (§8 — see loadPrefs/savePrefs).
   const body = document.body;
   const root = document.documentElement;
 
   // font toggle (default sans — see CSS: body.serif restores the academic
-  // serif on paper titles / modal titles / abstracts only). Lives in the
-  // Display popover as a Sans/Serif row (moved out of the header in v7).
+  // serif on paper titles / modal titles / abstracts only).
   function setSerif(on, persist = true) {
     Prefs.serif = on;
     body.classList.toggle("serif", on);
@@ -1025,8 +1205,8 @@ function initChrome() {
     b.addEventListener("click", () => setSerif(b.dataset.font === "serif")));
   setSerif(Prefs.serif, false);
 
-  // feed width (Display popover; replaces the old standalone Wide toggle —
-  // "Max" reproduces its full-viewport behaviour)
+  // feed width (Display popover; "Max" reproduces the old standalone Wide
+  // toggle's full-viewport behaviour)
   function setFeedWidth(id, persist = true) {
     Prefs.feedWidth = id;
     body.dataset.feedwidth = id;
@@ -1048,6 +1228,20 @@ function initChrome() {
   $("#cardstyle-seg").querySelectorAll("button").forEach((b) =>
     b.addEventListener("click", () => setCardStyle(b.dataset.cs)));
   setCardStyle(Prefs.cardStyle, false);
+
+  // "Hide authors & dates" display toggle (task 4) — same segmented pattern
+  // as Card style; CSS (body.hide-authors .pmeta{display:none}) does the
+  // actual hiding everywhere paperRow()'s meta line appears.
+  function setDetails(id, persist = true) {
+    const hide = id === "hide";
+    Prefs.hideAuthors = hide;
+    body.classList.toggle("hide-authors", hide);
+    $("#details-seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.details === id));
+    if (persist) savePrefs();
+  }
+  $("#details-seg").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => setDetails(b.dataset.details)));
+  setDetails(Prefs.hideAuthors ? "hide" : "show", false);
 
   // Display popover: zoom + card width + card height sliders
   const zoomSlider = $("#zoom-slider"), zoomVal = $("#zoom-val");
@@ -1083,40 +1277,32 @@ function initChrome() {
   cardwSlider.addEventListener("input", () => setCardW(Number(cardwSlider.value)));
   cardhSlider.addEventListener("input", () => setCardH(Number(cardhSlider.value)));
   $("#display-reset").addEventListener("click", () => {
-    setZoom(100); setCardW(420); setCardH(430); setFeedWidth("default"); setCardStyle("book"); setSerif(false);
+    setZoom(100); setCardW(420); setCardH(430); setFeedWidth("default"); setCardStyle("book"); setSerif(false); setDetails("show");
   });
 
   const displayBtn = $("#btn-display");
   const displayPop = $("#display-popover");
-  function closeDisplayPopover() { displayPop.classList.remove("show"); }
+  registerPanel(displayPop, displayBtn);
   displayBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    closeFavoritesPopover();
-    displayPop.classList.toggle("show");
-  });
-  document.addEventListener("click", (e) => {
-    if (displayPop.classList.contains("show") && !displayPop.contains(e.target) && e.target !== displayBtn) {
-      closeDisplayPopover();
-    }
+    openPopover(displayPop, displayBtn);
   });
 
   // ------------------------------------------------------------ favourites --
   // ONE global ordered list of journal ids (click order = rank), shared
-  // across all four modes. Persistence is opt-in (see savePrefs): unticking
-  // "Save favourites on this device" drops it from localStorage immediately.
+  // across all four modes. Persisted BY DEFAULT (v9) — the old opt-in "Save
+  // favourites on this device" checkbox is gone; "Clear favourites" (which
+  // also clears them from storage) and the re-order feature remain.
   const favBtn = $("#btn-favorites");
   const favPop = $("#favorites-popover");
   const favList = $("#fav-list");
-  const favPersist = $("#fav-persist");
-  favPersist.checked = Prefs.favoritesEnabled;
-
-  function closeFavoritesPopover() { favPop.classList.remove("show"); }
+  registerPanel(favPop, favBtn);
 
   function toggleFavorite(jid, on) {
     const i = Prefs.favorites.indexOf(jid);
     if (on && i === -1) Prefs.favorites.push(jid);
     else if (!on && i !== -1) Prefs.favorites.splice(i, 1);
-    if (Prefs.favoritesEnabled) savePrefs();
+    savePrefs();
     renderFavoritesList();
     if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
   }
@@ -1153,12 +1339,11 @@ function initChrome() {
   const favReorderBtn = $("#fav-reorder");
   const favReorderList = $("#fav-reorder-list");
   const favReorderDone = $("#fav-reorder-done");
-  const favPersistRow = $(".fav-persist-row");
 
   function commitReorderFromDom() {
     const ids = [...favReorderList.querySelectorAll(".fav-reorder-row")].map((r) => r.dataset.jid);
     Prefs.favorites = ids;
-    if (Prefs.favoritesEnabled) savePrefs();
+    savePrefs();
     if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
   }
 
@@ -1216,7 +1401,6 @@ function initChrome() {
 
   function enterReorderMode() {
     favList.style.display = "none";
-    favPersistRow.style.display = "none";
     $("#fav-clear").style.display = "none";
     favReorderBtn.style.display = "none";
     favReorderList.style.display = "block";
@@ -1225,7 +1409,6 @@ function initChrome() {
   }
   function exitReorderMode() {
     favList.style.display = "";
-    favPersistRow.style.display = "";
     $("#fav-clear").style.display = "";
     favReorderBtn.style.display = "";
     favReorderList.style.display = "none";
@@ -1237,26 +1420,17 @@ function initChrome() {
 
   favBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    closeDisplayPopover();
     exitReorderMode(); // always open on the checkbox view, not mid-reorder
-    favPop.classList.toggle("show");
-  });
-  document.addEventListener("click", (e) => {
-    if (favPop.classList.contains("show") && !favPop.contains(e.target) && e.target !== favBtn) {
-      closeFavoritesPopover();
-    }
-  });
-  favPersist.addEventListener("change", () => {
-    Prefs.favoritesEnabled = favPersist.checked;
-    savePrefs(); // ticking persists now; unticking drops favourites from storage immediately
+    openPopover(favPop, favBtn);
   });
   $("#fav-clear").addEventListener("click", () => {
     Prefs.favorites = [];
-    if (Prefs.favoritesEnabled) savePrefs();
+    savePrefs();
     renderFavoritesList();
     if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
   });
 
+  // ------------------------------------------------------------------ 3D --
   $("#btn-3d").addEventListener("click", async () => {
     if (!S.three) {
       try { S.three = await import("./threeview.js"); }
@@ -1279,6 +1453,46 @@ function initChrome() {
   $("#btn-exit-3d").addEventListener("click", () => {
     $("#three-wrap").classList.remove("show");
     S.three?.exit?.();
+  });
+
+  // ------------------------------------------------------- chips + "⋯" menu --
+  function wireChip(btnId, menuId) {
+    const btn = $(`#${btnId}`), menu = $(`#${menuId}`);
+    registerPanel(menu, btn);
+    btn.addEventListener("click", (e) => { e.stopPropagation(); openPopover(menu, btn); });
+  }
+  wireChip("chip-view", "menu-view");
+  wireChip("chip-mode", "menu-mode");
+  wireChip("chip-rank", "menu-rank");
+  wireChip("chip-win", "menu-win");
+
+  const moreBtn = $("#btn-more");
+  const moreMenu = $("#more-menu");
+  registerPanel(moreMenu, moreBtn);
+  moreBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openPopover(moreMenu, moreBtn);
+  });
+  // Favourites/Display/3D items only ever show inside this menu on mobile
+  // (see .mobile-only-item CSS) — they proxy a click onto the real,
+  // still-present-but-hidden header button, reusing all of its existing
+  // open/close/positioning logic rather than duplicating it.
+  $("#menu-favorites").addEventListener("click", () => { closeAllPopovers(); favBtn.click(); });
+  $("#menu-display").addEventListener("click", () => { closeAllPopovers(); displayBtn.click(); });
+  $("#menu-3d").addEventListener("click", () => { closeAllPopovers(); $("#btn-3d").click(); });
+  themeMenuItem.addEventListener("click", () => { closeAllPopovers(); setTheme(effTheme() === "dark" ? "light" : "dark"); });
+  $("#menu-about").addEventListener("click", () => { closeAllPopovers(); openAbout(); });
+
+  // one delegated "click outside closes everything open" listener for the
+  // whole header (chips, Favourites/Display, "⋯") — trigger buttons
+  // stopPropagation() on their own click (above), so this only ever fires
+  // for genuine outside clicks.
+  document.addEventListener("click", (e) => {
+    const anyOpen = OPEN_PANELS.some(({ panel }) => panel.classList.contains("show"));
+    if (!anyOpen) return;
+    const insideOpen = OPEN_PANELS.some(({ panel, btn }) =>
+      panel.contains(e.target) || (btn && btn.contains(e.target)));
+    if (!insideOpen) closeAllPopovers();
   });
 }
 

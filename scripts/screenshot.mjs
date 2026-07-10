@@ -14,43 +14,94 @@ const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 page.on("pageerror", (e) => errors.push(String(e)));
 
+// -------------------------------------------------------- v9 chip helpers --
+// The v9 header rebuild replaced the segmented rows/compact-dropdown pairs
+// (View/Subfield/Ranking/Window) with "chip" buttons that open an attached
+// popover menu of options — one shared interaction pattern that works
+// IDENTICALLY on desktop and mobile (the chip row just becomes a horizontal
+// scroller on narrow viewports), so these helpers replace what used to be
+// separate #x-seg / #x-dd branches per breakpoint.
+async function pickChip(pg, chipId, menuId, text) {
+  await pg.locator(`#${chipId}`).click();
+  await pg.waitForTimeout(150);
+  await pg.locator(`#${menuId} .chip-menu-item`, { hasText: text }).click();
+  await pg.waitForTimeout(200);
+}
+async function setView(pg, text) { await pickChip(pg, "chip-view", "menu-view", text); }
+async function setMode(pg, text) { await pickChip(pg, "chip-mode", "menu-mode", text); }
+async function setRanking(pg, text) { await pickChip(pg, "chip-rank", "menu-rank", text); }
+async function setWindowPreset(pg, presetId) {
+  await pg.locator("#chip-win").click();
+  await pg.waitForTimeout(150);
+  await pg.locator(`#menu-win .chip-menu-item[data-preset="${presetId}"]`).click();
+  await pg.waitForTimeout(200);
+}
+async function openWinMenu(pg) {
+  await pg.locator("#chip-win").click();
+  await pg.waitForTimeout(150);
+}
+async function openYearPicker(pg) {
+  await openWinMenu(pg);
+  await pg.locator("#win-menu-year-toggle").click();
+  await pg.waitForTimeout(150);
+}
+async function openCustomPicker(pg) {
+  await openWinMenu(pg);
+  await pg.locator("#win-menu-custom-toggle").click();
+  await pg.waitForTimeout(150);
+}
+// Favourites/Display/3D: real standalone header buttons on desktop; on
+// mobile they hide (CSS) and are reachable only via the "⋯" overflow menu,
+// which proxies a click onto the same (hidden but functional) button.
+async function openFavorites(pg, mobile = false) {
+  if (mobile) { await pg.locator("#btn-more").click(); await pg.waitForTimeout(150); await pg.locator("#menu-favorites").click(); }
+  else { await pg.locator("#btn-favorites").click(); }
+  await pg.waitForTimeout(200);
+}
+async function openDisplay(pg, mobile = false) {
+  if (mobile) { await pg.locator("#btn-more").click(); await pg.waitForTimeout(150); await pg.locator("#menu-display").click(); }
+  else { await pg.locator("#btn-display").click(); }
+  await pg.waitForTimeout(200);
+}
+async function enter3D(pg, mobile = false) {
+  if (mobile) { await pg.locator("#btn-more").click(); await pg.waitForTimeout(150); await pg.locator("#menu-3d").click(); }
+  else { await pg.locator("#btn-3d").click(); }
+}
+async function toggleTheme(pg) {
+  await pg.locator("#btn-more").click();
+  await pg.waitForTimeout(150);
+  await pg.locator("#menu-theme").click();
+  await pg.waitForTimeout(150);
+}
+async function openAboutMenu(pg) {
+  await pg.locator("#btn-more").click();
+  await pg.waitForTimeout(150);
+  await pg.locator("#menu-about").click();
+  await pg.waitForTimeout(150);
+}
+
 await page.goto(BASE, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/01-venue.png` }); // default view: book-style cards, light mode
 
-// task 12: desktop header — full segmented View/Ranking/Window rows (NOT
-// the compact dropdowns, which only take over below the mobile breakpoint)
-await page.locator("header.site").screenshot({ path: `${OUT}/01a-desktop-header.png` });
+// v9-01: desktop header — row 1 (brand/search/utilities), row 2 (four chips
+// left-aligned + count note right-aligned). Asserts chip labels & order.
 {
-  const ddVisible = await page.locator("#view-dd-wrap").isVisible();
-  const segVisible = await page.locator("#view-seg").isVisible();
-  console.log(`Desktop header: dropdowns visible=${ddVisible} (expect false), segmented rows visible=${segVisible} (expect true)`);
-}
-
-// v8-05: top .site-row no longer carries the old unlabelled #mode-seg — it
-// moved into .subrow as the labelled "Subfield" group (see v8-03 below).
-{
-  const modeInTopRow = await page.evaluate(() => {
-    const row = document.querySelector(".site-row");
-    const seg = document.querySelector("#mode-seg");
-    return !!(row && seg && row.contains(seg));
-  });
-  console.log(`v8-05: #mode-seg inside top .site-row: ${modeInTopRow} (expect false)`);
-  await page.locator(".site-row").screenshot({ path: `${OUT}/v8-05-top-row-no-mode-seg.png` });
-}
-
-// v8-03: desktop .subrow now shows View · Subfield · Ranking · Window groups
-// (Subfield immediately after View, matching the existing pattern).
-{
-  const labels = await page.locator(".subrow > .label").allInnerTexts();
-  console.log(`v8-03: .subrow group labels: ${JSON.stringify(labels)} (expect ["View","Subfield","Ranking","Window"])`);
-  const modeInSubrow = await page.evaluate(() => {
-    const sub = document.querySelector(".subrow");
-    const seg = document.querySelector("#mode-seg");
-    return !!(sub && seg && sub.contains(seg));
-  });
-  console.log(`v8-03: #mode-seg inside .subrow: ${modeInSubrow} (expect true)`);
-  await page.locator(".subrow").screenshot({ path: `${OUT}/v8-03-subrow-desktop.png` });
+  await page.locator("header.site").screenshot({ path: `${OUT}/v9-01-desktop-header.png` });
+  const chipLabels = await page.locator(".chip-val").allInnerTexts();
+  const chipKeys = await page.locator(".chip-key").allInnerTexts();
+  console.log(`v9-01: chip keys=${JSON.stringify(chipKeys)} (expect ["VIEW","SUBFIELD","RANKING","WINDOW"]), values=${JSON.stringify(chipLabels)}`);
+  const row1Ids = await page.locator(".site-row > *").evaluateAll((els) => els.map((e) => e.id || e.className));
+  console.log(`v9-01: row1 children (brand/spacer/search/utilities): ${JSON.stringify(row1Ids)}`);
+  const oldEls = await page.evaluate(() => ({
+    subrow: !!document.querySelector(".subrow"),
+    viewSeg: !!document.querySelector("#view-seg"),
+    modeSeg: !!document.querySelector("#mode-seg"),
+    ddWrap: !!document.querySelector(".dd-wrap"),
+    btnTheme: !!document.querySelector("#btn-theme"),
+    btnAbout: !!document.querySelector("#btn-about"),
+  }));
+  console.log(`v9-01: dead old-design elements present: ${JSON.stringify(oldEls)} (expect all false)`);
 }
 
 // journal card head close-up (desktop) — verifies the compacted card-top
@@ -70,9 +121,29 @@ await page.screenshot({ path: `${OUT}/03-paper.png` });
 await page.keyboard.press("Escape");
 
 // topic view
-await page.locator('#view-seg button[data-v="topic"]').click();
+await setView(page, "By topic");
 await page.waitForTimeout(600);
 await page.screenshot({ path: `${OUT}/04-topic.png` });
+
+// v9-10 (addendum, task 5): topic-section colour coding — each topic card
+// gets a stable accent drawn from the SAME per-journal colour list, spread
+// out so related/adjacent topics (Ethics vs Political) land on visibly
+// different colours, not neighbouring shades.
+{
+  await page.locator(".tcard").first().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${OUT}/v9-10-topic-colors.png` });
+  const colors = await page.evaluate(() => {
+    const byName = (name) => [...document.querySelectorAll(".tcard")]
+      .find((c) => c.querySelector(".jname")?.textContent.trim().startsWith(name));
+    const get = (name) => {
+      const c = byName(name);
+      return c ? getComputedStyle(c).getPropertyValue("--jc").trim() : null;
+    };
+    return { ethics: get("Ethics"), political: get("Political") };
+  });
+  const v910pass = !!colors.ethics && !!colors.political && colors.ethics !== colors.political;
+  console.log(`v9-10: Ethics section accent=${colors.ethics}, Political section accent=${colors.political} -> ${v910pass ? "PASS (distinct)" : "FAIL"}`);
+}
 
 // scrolled topic card: expand + scroll within a topic body (respects the
 // card-height cap, same mechanism as journal cards)
@@ -115,7 +186,7 @@ await page.screenshot({ path: `${OUT}/04-topic.png` });
 // flat, newest-first, cross-journal list — paperRow(r, true) journal-colour
 // accent (same treatment as the topic view), chunked/lazy rendering via
 // IntersectionObserver so it doesn't have to render everything up front.
-await page.locator('#view-seg button[data-v="all"]').click();
+await setView(page, "All");
 await page.waitForTimeout(600);
 await page.screenshot({ path: `${OUT}/04c-all-12mo.png` });
 
@@ -129,7 +200,7 @@ await page.screenshot({ path: `${OUT}/04d-all-scrolled.png` });
 // confirm only a small chunk is in the DOM up front (lazy, not everything
 // at once), then scroll to pull in a few more chunks.
 {
-  await page.locator('#win-seg button[data-w="all"]').click();
+  await setWindowPreset(page, "all");
   const t0 = Date.now();
   await page.waitForTimeout(4000); // same settle time the existing 09b since-2000 case uses
   const elapsedMs = Date.now() - t0;
@@ -143,29 +214,44 @@ await page.screenshot({ path: `${OUT}/04d-all-scrolled.png` });
 }
 
 // back to venue + 12mo for the rest of the desktop shots
-await page.locator('#win-seg button[data-w="365"]').click();
+await setWindowPreset(page, "365");
 await page.waitForTimeout(800);
-await page.locator('#view-seg button[data-v="venue"]').click();
+await setView(page, "By venue");
 await page.waitForTimeout(400);
 
 // ------------------------------------------------------------- 7d preset --
-await page.locator('#win-seg button[data-w="7"]').click();
+await setWindowPreset(page, "7");
 await page.waitForTimeout(600);
 await page.screenshot({ path: `${OUT}/04g-7d-window.png` });
 
 // -------------------------------------------------------- custom window --
-// open the inline picker, apply a short custom window (3 weeks — no
-// partial-data note expected), then a long one (10 years — past 5 years,
-// partial-data note expected). Label on the seg button itself should update.
-await page.locator("#win-custom").click();
+// v9-02: Window chip menu open, showing presets + "Pick a year…" + "Custom…"
+await openWinMenu(page);
+await page.waitForTimeout(200);
+await page.screenshot({ path: `${OUT}/v9-02-window-chip-menu.png` });
+{
+  const items = await page.locator("#menu-win .chip-menu-item").allInnerTexts();
+  console.log(`v9-02: Window chip menu items: ${JSON.stringify(items)} (expect 6 presets + "Pick a year…" + "Custom…")`);
+}
+
+// open the inline custom picker (inside the still-open menu), apply a short
+// custom window (3 weeks — no partial-data note expected), then a long one
+// (10 years — past 5 years, partial-data note expected). The WINDOW CHIP's
+// own label should update to reflect the applied value.
+await page.locator("#win-menu-custom-toggle").click();
 await page.waitForTimeout(300);
-await page.screenshot({ path: `${OUT}/04h-custom-picker-open.png` }); // inline UI visible, defaults (3 weeks)
+await page.screenshot({ path: `${OUT}/04h-custom-picker-open.png` }); // inline UI visible within the still-open menu, defaults (3 weeks)
 await page.fill("#custom-n", "3");
 await page.selectOption("#custom-unit", "weeks");
 await page.locator("#custom-apply").click();
 await page.waitForTimeout(600);
-await page.screenshot({ path: `${OUT}/04i-custom-3weeks-applied.png` }); // seg button label -> "Custom: 3 weeks", no coverage note
+await page.screenshot({ path: `${OUT}/04i-custom-3weeks-applied.png` }); // chip label -> "3 weeks", no coverage note, menu closed
+{
+  const chipVal = await page.locator("#chip-win .chip-val").innerText();
+  console.log(`Custom window chip label after 3-weeks apply: "${chipVal}" (expect "3 weeks")`);
+}
 
+await openCustomPicker(page);
 await page.fill("#custom-n", "10");
 await page.selectOption("#custom-unit", "years");
 await page.locator("#custom-apply").click();
@@ -173,22 +259,22 @@ await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/04j-custom-10years-coverage-note.png` }); // partial-data note should now show
 
 // revert to the default window for the remaining desktop shots
-await page.locator('#win-seg button[data-w="365"]').click();
+await setWindowPreset(page, "365");
 await page.waitForTimeout(600);
 
 // leiter ranking toggle (back on venue)
-await page.locator('#view-seg button[data-v="venue"]').click();
-await page.locator("#rank-seg button", { hasText: "Leiter" }).click();
+await setView(page, "By venue");
+await setRanking(page, "Leiter");
 await page.waitForTimeout(500);
 await page.screenshot({ path: `${OUT}/05-leiter.png` });
 
 // ethics mode
-await page.locator("#mode-seg button", { hasText: "Ethics" }).click();
+await setMode(page, "Ethics");
 await page.waitForTimeout(500);
 await page.screenshot({ path: `${OUT}/06-ethics.png` });
 
 // search
-await page.locator("#mode-seg button", { hasText: "General" }).click();
+await setMode(page, "General");
 await page.fill("#search", "blame");
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/07-search.png` });
@@ -201,7 +287,7 @@ await page.screenshot({ path: `${OUT}/07b-inline-markup.png` });
 await page.fill("#search", "");
 
 // 5-year window
-await page.locator('#win-seg button[data-w="1826"]').click();
+await setWindowPreset(page, "1826");
 await page.waitForTimeout(2500);
 await page.screenshot({ path: `${OUT}/08-5yr.png` });
 
@@ -241,7 +327,7 @@ await page.screenshot({ path: `${OUT}/08-5yr.png` });
 
 // "Since 2000" full-archive window — on-demand year-file stitching, must not
 // freeze the UI or blow up journal counts/sparklines
-await page.locator('#win-seg button[data-w="all"]').click();
+await setWindowPreset(page, "all");
 await page.waitForTimeout(4000);
 await page.screenshot({ path: `${OUT}/09b-since-2000.png` });
 
@@ -263,7 +349,7 @@ await page.screenshot({ path: `${OUT}/09b-since-2000.png` });
 // deposits zero abstracts to CrossRef in the current window (verified
 // against data/shards/ajp/2026.json), so its first paper is a reliable hit
 {
-  await page.locator('#win-seg button[data-w="365"]').click();
+  await setWindowPreset(page, "365");
   await page.waitForTimeout(800);
   const ajpCard = page.locator(".jcard").filter({ has: page.locator(".jname", { hasText: /^Australasian Journal of Philosophy\s*$/ }) }).first();
   await ajpCard.scrollIntoViewIfNeeded();
@@ -275,14 +361,14 @@ await page.screenshot({ path: `${OUT}/09b-since-2000.png` });
 }
 
 // typed-year control: type a year >5 years back — coverage note should appear
-await page.locator('#win-seg button[data-w="year"]').click();
+await openYearPicker(page);
 await page.fill("#yearinput", "2003");
 await page.locator("#yearinput").press("Enter");
 await page.waitForTimeout(1200);
 await page.screenshot({ path: `${OUT}/09e-year-2003-coverage-note.png` });
 
 // journal popout ("View all") — full list in a scroll-capped modal
-await page.locator('#win-seg button[data-w="365"]').click();
+await setWindowPreset(page, "365");
 await page.waitForTimeout(800);
 await page.locator(".jcard .viewall").first().click();
 await page.waitForTimeout(400);
@@ -333,9 +419,28 @@ await page.waitForTimeout(200);
   await page.waitForTimeout(200);
 }
 
+// v9-03: "⋯" menu open (Theme/About) — desktop only ever shows these two
+// items in the menu (Favourites/Display/3D stay as standalone buttons and
+// their .mobile-only-item menu twins are CSS-hidden at this viewport).
+{
+  await page.locator("#btn-more").click();
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/v9-03-more-menu-desktop.png` });
+  const visible = await page.evaluate(() => {
+    const vis = (sel) => { const e = document.querySelector(sel); return !!e && getComputedStyle(e).display !== "none" && e.offsetParent !== null; };
+    return {
+      theme: vis("#menu-theme"), about: vis("#menu-about"),
+      favorites: vis("#menu-favorites"), display: vis("#menu-display"), threeD: vis("#menu-3d"),
+    };
+  });
+  console.log(`v9-03: ⋯ menu item visibility on desktop: ${JSON.stringify(visible)} (expect theme/about=true, favorites/display/threeD=false)`);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+}
+
 // about modal (light mode) — new copy, dynamic "Data last updated" line
 // rendered in the viewer's local timezone (headless Chromium's default TZ)
-await page.locator("#btn-about").click();
+await openAboutMenu(page);
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/11-about.png` });
 await page.locator("#about-close").click();
@@ -345,18 +450,20 @@ await page.waitForTimeout(200);
 // task 13: "Favourites" as a VIEW option (distinct from the Favourites
 // RANKING option below) — empty state first, before any favourites exist
 {
-  await page.locator('#view-seg button[data-v="favorites"]').click();
+  await setView(page, "Favourites");
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/20a-favorites-view-empty.png` });
-  await page.locator('#view-seg button[data-v="venue"]').click();
+  await setView(page, "By venue");
   await page.waitForTimeout(300);
 }
 
 // ------------------------------------------------------------ favourites --
 // pick the top 3 ranked journals (positional — robust to naming) in order,
-// confirm circled-number badges appear, then switch to Favourites ranking
+// confirm circled-number badges appear, then switch to Favourites ranking.
+// v9: favourites are persisted BY DEFAULT now (no opt-in checkbox) — see
+// the dedicated v9-09 reload-persistence check near the end of this script.
 {
-  await page.locator("#btn-favorites").click();
+  await openFavorites(page);
   await page.waitForTimeout(200);
   const rows = page.locator("#fav-list .fav-row input");
   await rows.nth(0).click();
@@ -364,7 +471,10 @@ await page.waitForTimeout(200);
   await rows.nth(2).click();
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/20-favorites-dropdown.png` });
-  await page.locator("#fav-persist").click(); // opt in to persistence
+  {
+    const hasPersistCheckbox = await page.locator("#fav-persist").count();
+    console.log(`v9: "Save favourites on this device" checkbox present: ${hasPersistCheckbox > 0} (expect false — removed, persists by default)`);
+  }
 
   // Re-order favourites: drag-to-rank panel replaces the checkbox list,
   // "Done" returns to it — reordering updates rank badges/numbers everywhere
@@ -396,19 +506,19 @@ await page.waitForTimeout(200);
   await page.mouse.click(50, 50); // close popover
   await page.waitForTimeout(200);
 
-  await page.locator("#rank-seg button", { hasText: "Favourites" }).click();
+  await setRanking(page, "Favourites");
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/21-favorites-ranking-2d.png` }); // reflects the re-ordered ranks
 
   // task 13: Favourites VIEW (not ranking) — only the favourited journals,
   // in favourites order, as ordinary cards. Revert ranking to de Bruin
   // first so this isn't conflated with the ranking-mode shot above.
-  await page.locator("#rank-seg button", { hasText: "de Bruin" }).click();
+  await setRanking(page, "de Bruin");
   await page.waitForTimeout(300);
-  await page.locator('#view-seg button[data-v="favorites"]').click();
+  await setView(page, "Favourites");
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/20e-favorites-view-populated.png` });
-  await page.locator('#view-seg button[data-v="venue"]').click();
+  await setView(page, "By venue");
   await page.waitForTimeout(300);
 }
 
@@ -416,9 +526,9 @@ await page.waitForTimeout(200);
 // feed width controls visible in the Display popover. The popover stays
 // open across these clicks (only closes on an outside click or a second
 // #btn-display click — don't re-click #btn-display mid-sequence, it toggles).
-await page.locator("#btn-display").click();
+await openDisplay(page);
 await page.waitForTimeout(200);
-await page.screenshot({ path: `${OUT}/22-display-popover.png` }); // shows card-style + feed-width (all 4 presets) + Font row, unclipped
+await page.screenshot({ path: `${OUT}/22-display-popover.png` }); // shows card-style + feed-width (all 4 presets) + Font + Details rows, unclipped
 await page.locator('#feedwidth-seg button[data-fw="max"]').click();
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/23-feedwidth-max.png` });
@@ -429,16 +539,15 @@ await page.locator('#cardstyle-seg button[data-cs="basic"]').click();
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/24-cardstyle-basic.png` });
 await page.locator('#cardstyle-seg button[data-cs="book"]').click(); // revert to book (default)
-await page.locator("#btn-display").click(); // close popover
-await page.waitForTimeout(200);
+await openDisplay(page); // close popover
 
 // font toggle: Serif — venue titles + paper modal (moved from a standalone
 // header button into the Display popover as a Font: Sans/Serif row in v7)
-await page.locator("#btn-display").click();
+await openDisplay(page);
 await page.waitForTimeout(200);
 await page.locator('#font-seg button[data-font="serif"]').click();
 await page.waitForTimeout(200);
-await page.locator("#btn-display").click(); // close popover
+await openDisplay(page); // close popover
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${OUT}/12-serif-venue.png` });
 await page.locator(".jbody .paper").first().click();
@@ -447,8 +556,48 @@ await page.screenshot({ path: `${OUT}/13-serif-modal.png` });
 await page.keyboard.press("Escape");
 await page.waitForTimeout(200);
 
+// v9-08: "Hide authors & dates" display toggle (task 4) — paper rows show
+// titles only (no .pmeta line) everywhere in 2D; the paper MODAL keeps
+// full author/date info regardless.
+{
+  await openDisplay(page);
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/v9-08a-display-details-row.png` }); // Details: Show/Hide segmented row visible
+  await page.locator('#details-seg button[data-details="hide"]').click();
+  await page.waitForTimeout(200);
+  await openDisplay(page); // close popover
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/v9-08b-hide-authors-cards.png` });
+  // .pmeta nodes stay IN the DOM (paperRow() always renders them) — CSS
+  // (body.hide-authors .pmeta{display:none}) is what hides them, so assert
+  // computed style, not element count/presence.
+  const pmetaVisibleCount = await page.locator(".jbody .pmeta").evaluateAll(
+    (els) => els.filter((e) => getComputedStyle(e).display !== "none").length);
+  console.log(`v9-08: .pmeta elements with computed display!=none (i.e. actually visible) in venue cards with Hide authors on: ${pmetaVisibleCount} (expect 0)`);
+  const ptitleCount = await page.locator(".jbody .ptitle").count();
+  console.log(`v9-08: .ptitle (title-only rows) still present: ${ptitleCount} (expect > 0)`);
+
+  // modal keeps full info regardless of the toggle
+  await page.locator(".jbody .paper").first().click();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/v9-08c-hide-authors-modal-unaffected.png` });
+  const modalAuthorsVisible = await page.evaluate(() => {
+    const a = document.querySelector("#paper-modal .authors");
+    return !!a && getComputedStyle(a).display !== "none" && a.textContent.trim().length >= 0;
+  });
+  console.log(`v9-08: paper modal .authors still present/visible with Hide authors on: ${modalAuthorsVisible} (expect true)`);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
+  // revert for the rest of the run
+  await openDisplay(page);
+  await page.locator('#details-seg button[data-details="show"]').click();
+  await openDisplay(page);
+  await page.waitForTimeout(200);
+}
+
 // Display popover open, sliders moved
-await page.locator("#btn-display").click();
+await openDisplay(page);
 await page.waitForTimeout(200);
 await page.locator("#zoom-slider").fill("75");
 await page.locator("#zoom-slider").dispatchEvent("input");
@@ -461,12 +610,16 @@ await page.screenshot({ path: `${OUT}/14-display-popover.png` });
 await page.mouse.click(50, 50); // click outside to close
 await page.waitForTimeout(200);
 // reset back to defaults so later views aren't zoomed for the rest of the run
-await page.locator("#btn-display").click();
-await page.locator("#display-reset").click(); // resets zoom/card sliders/feed width/card style AND font (serif -> sans)
-await page.locator("#btn-display").click();
+await openDisplay(page);
+await page.locator("#display-reset").click(); // resets zoom/card sliders/feed width/card style/font/details
+await openDisplay(page);
 await page.waitForTimeout(300);
+{
+  const cardwMin = await page.locator("#cardw-slider").getAttribute("min");
+  console.log(`Card-width slider min attribute: ${cardwMin} (expect "160" — task 3/v9)`);
+}
 // undo the favourites ranking pick so 3D shots start from de Bruin ranking
-await page.locator("#rank-seg button", { hasText: "de Bruin" }).click();
+await setRanking(page, "de Bruin");
 await page.waitForTimeout(300);
 
 // ------------------------------------------------------------------- 3D --
@@ -483,7 +636,7 @@ async function threeDebugState() {
   });
 }
 
-await page.locator("#btn-3d").click();
+await enter3D(page);
 await page.waitForTimeout(2500);
 await page.screenshot({ path: `${OUT}/15-3d.png` }); // home view — lecterns close & below eye level, empty
 
@@ -598,30 +751,30 @@ await page.screenshot({ path: `${OUT}/19-3d-open-favorites.png` });
 
 // dark mode
 await page.locator("#btn-exit-3d").click();
-await page.locator("#btn-theme").click();
+await toggleTheme(page);
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/25-dark.png` }); // book-style cards, dark mode
 
 // about modal (dark mode) — confirm the new copy/links read fine on dark surface
-await page.locator("#btn-about").click();
+await openAboutMenu(page);
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/25a-about-dark.png` });
 await page.locator("#about-close").click();
 await page.waitForTimeout(200);
 
 // dark mode with the new controls visible: serif on, Max feed width, Display open
-await page.locator("#btn-display").click();
+await openDisplay(page);
 await page.locator('#font-seg button[data-font="serif"]').click();
 await page.locator('#feedwidth-seg button[data-fw="max"]').click();
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${OUT}/26-dark-controls.png` });
-await page.locator("#btn-display").click(); // close popover
+await openDisplay(page); // close popover
 await page.waitForTimeout(200);
 // revert font + feed width so later shots aren't affected
-await page.locator("#btn-display").click();
+await openDisplay(page);
 await page.locator('#font-seg button[data-font="sans"]').click();
 await page.locator('#feedwidth-seg button[data-fw="default"]').click();
-await page.locator("#btn-display").click();
+await openDisplay(page);
 await page.waitForTimeout(200);
 
 // dark-mode scrollbars (task 9) — scrollbar-color is applied via CSS custom
@@ -634,11 +787,11 @@ await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/26b-dark-scrollbar-area.png` }); // scrollable card list area, dark mode
   const scrollbarColor = await page.evaluate(() => getComputedStyle(document.querySelector(".jbody")).scrollbarColor);
   console.log(`Dark-mode .jbody scrollbar-color: "${scrollbarColor}" (expect a dark thumb/track pair, not "auto")`);
-  await page.locator("#btn-theme").click(); // back to light
+  await toggleTheme(page); // back to light
   await page.waitForTimeout(300);
   const scrollbarColorLight = await page.evaluate(() => getComputedStyle(document.querySelector(".jbody")).scrollbarColor);
   console.log(`Light-mode .jbody scrollbar-color: "${scrollbarColorLight}" (expect "auto" — unaffected)`);
-  await page.locator("#btn-theme").click(); // back to dark for the rest of the desktop run
+  await toggleTheme(page); // back to dark for the rest of the desktop run
   await page.waitForTimeout(300);
 }
 
@@ -660,11 +813,10 @@ mp.on("pageerror", (e) => mobileErrors.push(`[portrait] ${e}`));
 
 await mp.goto(BASE, { waitUntil: "networkidle" });
 await mp.waitForTimeout(800);
-await mp.screenshot({ path: `${OUT}/m01-venue-portrait.png` }); // single-column cards, header wraps
+await mp.screenshot({ path: `${OUT}/m01-venue-portrait.png` }); // single-column cards, header row 1 no longer wraps
 
 // header close-up (portrait) — compacted chrome, no horizontal overflow;
-// view selector ("All" now present) + window controls (7d/Custom… now
-// present) must still be reachable (wrapped), not cut off
+// chip row now visible (was dropdowns pre-v9)
 await mp.locator("header.site").screenshot({ path: `${OUT}/m01a-header-portrait.png` });
 // journal card head close-up (portrait) — compacted card top, "View all"
 // inline with the count rather than stacked over the sparkline
@@ -674,64 +826,103 @@ await mp.locator(".jcard").first().locator(".jhead").screenshot({ path: `${OUT}/
   console.log(`portrait horizontal overflow: ${overflowPortrait}px (should be <=0)`);
 }
 
-// task 12: View/Ranking/Window are compact dropdowns on mobile now — the
-// segmented rows are display:none below this breakpoint, so drive them via
-// the dropdowns (what a real user would tap) rather than the hidden buttons
+// mobile header row 1 (brand + search-icon + "⋯") must be a SINGLE row, not
+// wrapped onto two — regression check for the .spacer flex-basis:100%
+// leftover that used to force the icon buttons beneath the brand on a
+// 390px/320px-wide phone (see the mobile-CSS comment in style.css). Row 1
+// is .site-row itself (the chip row is a separate sibling below it), so
+// asserting on that element's own box height cleanly excludes row 2.
 {
-  const segVisible = await mp.locator("#view-seg").isVisible();
-  const ddVisible = await mp.locator("#view-dd-wrap").isVisible();
-  console.log(`Mobile portrait: view-seg visible=${segVisible} (expect false), view-dd-wrap visible=${ddVisible} (expect true)`);
+  const row1 = await mp.evaluate(() => {
+    const rect = (sel) => document.querySelector(sel).getBoundingClientRect();
+    const b = rect(".brand");
+    const s = rect("#btn-search-toggle");
+    const m = rect("#btn-more");
+    const row = rect(".site-row");
+    const overlaps = (a, c) => a.top < c.bottom && c.top < a.bottom;
+    return {
+      rowHeight: row.height,
+      brandSearchSameRow: overlaps(b, s),
+      brandMoreSameRow: overlaps(b, m),
+    };
+  });
+  const singleRowPass = row1.brandSearchSameRow && row1.brandMoreSameRow && row1.rowHeight <= 60;
+  console.log(`mobile header row 1: height=${row1.rowHeight.toFixed(1)}px (expect <=60px), ` +
+    `brand/search-icon same row=${row1.brandSearchSameRow}, brand/more same row=${row1.brandMoreSameRow} -> ${singleRowPass ? "PASS" : "FAIL"}`);
 }
 
-// v8-04: mobile portrait — four dropdowns (View/Subfield/Ranking/Window) all
-// visible in .subrow, then switch Subfield to "Ethics & political" and
-// assert the Ranking dropdown's options change accordingly (general mode:
-// de Bruin/Leiter/Favourites -> field modes: Field ranking/Favourites).
+// v9-04: mobile portrait — chip row is a single non-wrapping scrollable
+// strip (scrollWidth > clientWidth, or a visible right-edge fade), and the
+// full-width search input is hidden (only the search ICON shows).
 {
-  const ddVis = {
-    view: await mp.locator("#view-dd-wrap").isVisible(),
-    mode: await mp.locator("#mode-dd-wrap").isVisible(),
-    rank: await mp.locator("#rank-dd-wrap").isVisible(),
-    win: await mp.locator("#win-dd-wrap").isVisible(),
-  };
-  console.log(`v8-04: mobile dropdowns visible: ${JSON.stringify(ddVis)} (expect all true)`);
-  await mp.screenshot({ path: `${OUT}/v8-04a-mobile-four-dropdowns.png` });
+  const scroll = await mp.evaluate(() => {
+    const c = document.querySelector(".chiprow");
+    return { scrollWidth: c.scrollWidth, clientWidth: c.clientWidth };
+  });
+  const scrollable = scroll.scrollWidth > scroll.clientWidth;
+  console.log(`v9-04: chip row scrollWidth=${scroll.scrollWidth} clientWidth=${scroll.clientWidth} -> scrollable=${scrollable} (expect true)`);
+  const searchboxVisible = await mp.locator(".searchbox").isVisible();
+  const searchIconVisible = await mp.locator("#btn-search-toggle").isVisible();
+  console.log(`v9-04: mobile portrait — full search input visible=${searchboxVisible} (expect false), search icon visible=${searchIconVisible} (expect true)`);
+  await mp.screenshot({ path: `${OUT}/v9-04-mobile-chiprow-scrollable.png` });
+}
 
-  const rankOptsBefore = await mp.locator("#rank-dd option").allTextContents();
-  await mp.selectOption("#mode-dd", "ethics");
+// Subfield chip changes the Ranking chip's options (general mode: de
+// Bruin/Leiter/Favourites -> field modes: Field ranking/Favourites) — same
+// interaction surface (chips) now covers what the mobile-only dropdowns
+// used to test pre-v9.
+{
+  const rankOptsBefore = await mp.locator("#menu-rank .chip-menu-item").allInnerTexts();
+  await setMode(mp, "Ethics");
   await mp.waitForTimeout(400);
-  const rankOptsAfter = await mp.locator("#rank-dd option").allTextContents();
+  const rankOptsAfter = await mp.locator("#menu-rank .chip-menu-item").allInnerTexts();
   const rankChanged = JSON.stringify(rankOptsBefore) !== JSON.stringify(rankOptsAfter);
-  console.log(`v8-04: rank-dd options before=${JSON.stringify(rankOptsBefore)} after switching to Ethics & political=${JSON.stringify(rankOptsAfter)} -> changed=${rankChanged} (expect true)`);
-  await mp.screenshot({ path: `${OUT}/v8-04b-mobile-subfield-ethics.png` });
-
-  await mp.selectOption("#mode-dd", "general"); // revert for the rest of the mobile run
+  console.log(`mobile: rank menu items before=${JSON.stringify(rankOptsBefore)} after switching to Ethics & political=${JSON.stringify(rankOptsAfter)} -> changed=${rankChanged} (expect true)`);
+  await mp.screenshot({ path: `${OUT}/m01c-mobile-subfield-ethics.png` });
+  await setMode(mp, "General"); // revert for the rest of the mobile run
   await mp.waitForTimeout(300);
 }
 
-await mp.selectOption("#win-dd", "year");
+await openYearPicker(mp);
 await mp.waitForTimeout(300);
-await mp.screenshot({ path: `${OUT}/m01d-window-dd-year-open.png` }); // typed-year input still reachable via the dropdown flow
-await mp.selectOption("#win-dd", "365");
+await mp.screenshot({ path: `${OUT}/m01d-window-year-open.png` }); // typed-year input still reachable via the Window chip menu
+await mp.keyboard.press("Escape");
+await setWindowPreset(mp, "365");
 await mp.waitForTimeout(300);
 
 // "All" view on a phone (single-column, chunked/lazy-rendered flat list)
-await mp.selectOption("#view-dd", "all");
+await setView(mp, "All");
 await mp.waitForTimeout(600);
-await mp.screenshot({ path: `${OUT}/m01c-all-portrait.png` });
-await mp.selectOption("#view-dd", "venue");
+await mp.screenshot({ path: `${OUT}/m01e-all-portrait.png` });
+await setView(mp, "By venue");
 await mp.waitForTimeout(400);
 
-await mp.locator("#btn-display").click();
+// v9-05: search icon tapped -> search input visible AND focused
+{
+  await mp.locator("#btn-search-toggle").click();
+  await mp.waitForTimeout(300);
+  await mp.screenshot({ path: `${OUT}/v9-05-mobile-search-open.png` });
+  const searchState = await mp.evaluate(() => {
+    const el = document.querySelector("#search");
+    return { visible: !!el && getComputedStyle(el).display !== "none", focused: document.activeElement === el };
+  });
+  console.log(`v9-05: mobile search after icon tap: ${JSON.stringify(searchState)} (expect both true)`);
+  await mp.keyboard.press("Escape");
+  await mp.waitForTimeout(200);
+  const stillOpen = await mp.evaluate(() => document.body.classList.contains("search-open"));
+  console.log(`v9-05: mobile search closed by Esc: ${!stillOpen} (expect true)`);
+}
+
+await openDisplay(mp, true);
 await mp.waitForTimeout(300);
 await mp.screenshot({ path: `${OUT}/m02-display-popover.png` }); // bottom-sheet, must fit on screen
-await mp.locator("#btn-display").click();
+await mp.keyboard.press("Escape");
 await mp.waitForTimeout(200);
 
-await mp.locator("#btn-favorites").click();
+await openFavorites(mp, true);
 await mp.waitForTimeout(300);
 await mp.screenshot({ path: `${OUT}/m03-favorites-popover.png` });
-await mp.locator("#btn-favorites").click();
+await mp.keyboard.press("Escape");
 await mp.waitForTimeout(200);
 
 await mp.locator(".jcard .viewall").first().click();
@@ -746,14 +937,44 @@ await mp.screenshot({ path: `${OUT}/m05-paper-modal.png` });
 await mp.keyboard.press("Escape");
 await mp.waitForTimeout(200);
 
-await mp.selectOption("#view-dd", "topic");
+await setView(mp, "By topic");
 await mp.waitForTimeout(500);
 await mp.screenshot({ path: `${OUT}/m06-topic.png` });
-await mp.selectOption("#view-dd", "venue");
+await setView(mp, "By venue");
 await mp.waitForTimeout(300);
 
-// 3D — portrait: framing, touch-drag rotate, "Aim to view"
-await mp.locator("#btn-3d").click();
+// v9-07: phone portrait, card width 180 -> at least 2 columns of journal
+// cards, no horizontal page overflow. (Card-width slider min is 160 — task
+// 3/v9; the jgrid formula clamps minmax()'s floor to the container width.)
+{
+  await openDisplay(mp, true);
+  await mp.waitForTimeout(300);
+  await mp.fill("#cardw-slider", "180");
+  await mp.locator("#cardw-slider").dispatchEvent("input");
+  await mp.waitForTimeout(300);
+  await mp.keyboard.press("Escape");
+  await mp.waitForTimeout(300);
+  await mp.screenshot({ path: `${OUT}/v9-07-phone-2col-cards.png` });
+  const cols = await mp.evaluate(() => {
+    const cards = [...document.querySelectorAll(".jgrid .jcard")];
+    if (!cards.length) return { cardCount: 0, firstRowCount: 0 };
+    const firstTop = Math.round(cards[0].getBoundingClientRect().top);
+    const firstRowCount = cards.filter((c) => Math.round(c.getBoundingClientRect().top) === firstTop).length;
+    return { cardCount: cards.length, firstRowCount };
+  });
+  console.log(`v9-07: journal cards in the first grid row at 180px card-width on a 390px phone: ${cols.firstRowCount} (expect >= 2)`);
+  const overflowNarrow = await mp.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  console.log(`v9-07: horizontal overflow at 180px card-width: ${overflowNarrow}px (should be <=0)`);
+  // revert card width for the rest of the mobile run
+  await openDisplay(mp, true);
+  await mp.locator("#display-reset").click();
+  await mp.keyboard.press("Escape");
+  await mp.waitForTimeout(300);
+}
+
+// 3D — portrait: framing, touch-drag rotate, "Aim to view". Entered via the
+// "⋯" menu on mobile (the standalone #btn-3d hides below the breakpoint).
+await enter3D(mp, true);
 await mp.waitForTimeout(2500);
 await mp.screenshot({ path: `${OUT}/m07-3d-portrait.png` });
 
@@ -828,7 +1049,7 @@ await ml.locator("header.site").screenshot({ path: `${OUT}/m13a-header-landscape
   console.log(`landscape horizontal overflow: ${overflowLandscape}px (should be <=0)`);
 }
 
-await ml.locator("#btn-3d").click();
+await enter3D(ml, true);
 await ml.waitForTimeout(2500);
 await ml.screenshot({ path: `${OUT}/m14-3d-landscape.png` }); // shelf + lecterns framing, HUD not covering the scene
 
@@ -842,7 +1063,111 @@ await ml.screenshot({ path: `${OUT}/m15-3d-landscape-rotated.png` });
 await ml.locator("#btn-exit-3d").click();
 await mCtxL.close();
 
+// ============================================================ persistence ==
+// v9-06/v9-09: a FRESH, isolated browser context (own localStorage) so
+// nothing from the rest of the run (dark mode toggles, favourites picks,
+// etc.) leaks in or masks what's actually being persisted/restored.
+const persErrors = [];
+const persCtx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
+const pp = await persCtx.newPage();
+pp.on("console", (m) => { if (m.type() === "error") persErrors.push(m.text()); });
+pp.on("pageerror", (e) => persErrors.push(String(e)));
+
+await pp.goto(BASE, { waitUntil: "networkidle" });
+await pp.waitForTimeout(800);
+
+// v9-09: favourite 2 journals, reload, confirm still favourited
+await openFavorites(pp);
+await pp.waitForTimeout(200);
+const favRows = pp.locator("#fav-list .fav-row input");
+await favRows.nth(0).click();
+await favRows.nth(1).click();
+await pp.waitForTimeout(200);
+const favNamesBefore = await pp.locator("#fav-list .fav-row.checked .fav-name").allInnerTexts();
+await pp.mouse.click(50, 50); // close popover
+await pp.waitForTimeout(200);
+
+// v9-06: set view=All, subfield=Ethics, window=90d, dark theme, card width
+// 200, hide-authors on
+await setView(pp, "All");
+await pp.waitForTimeout(300);
+await setMode(pp, "Ethics");
+await pp.waitForTimeout(300);
+await setWindowPreset(pp, "90");
+await pp.waitForTimeout(300);
+await toggleTheme(pp); // -> dark (default effective theme is light in headless Chromium)
+await pp.waitForTimeout(300);
+await openDisplay(pp);
+await pp.waitForTimeout(200);
+await pp.fill("#cardw-slider", "200");
+await pp.locator("#cardw-slider").dispatchEvent("input");
+await pp.locator('#details-seg button[data-details="hide"]').click();
+await pp.waitForTimeout(200);
+await openDisplay(pp); // close
+await pp.waitForTimeout(300);
+
+const beforeReload = await pp.evaluate(() => ({
+  view: document.querySelector("#chip-view .chip-val").textContent,
+  mode: document.querySelector("#chip-mode .chip-val").textContent,
+  win: document.querySelector("#chip-win .chip-val").textContent,
+  theme: document.documentElement.dataset.theme,
+  cardMinW: getComputedStyle(document.documentElement).getPropertyValue("--card-min-w").trim(),
+  hideAuthors: document.body.classList.contains("hide-authors"),
+}));
+console.log(`v9-06: state BEFORE reload: ${JSON.stringify(beforeReload)}`);
+await pp.screenshot({ path: `${OUT}/v9-06a-before-reload.png` });
+
+await pp.reload({ waitUntil: "networkidle" });
+await pp.waitForTimeout(1000);
+
+const afterReload = await pp.evaluate(() => ({
+  view: document.querySelector("#chip-view .chip-val").textContent,
+  mode: document.querySelector("#chip-mode .chip-val").textContent,
+  win: document.querySelector("#chip-win .chip-val").textContent,
+  theme: document.documentElement.dataset.theme,
+  cardMinW: getComputedStyle(document.documentElement).getPropertyValue("--card-min-w").trim(),
+  hideAuthors: document.body.classList.contains("hide-authors"),
+  // .pmeta nodes stay IN the DOM (paperRow() always renders them) — CSS is
+  // what hides them, so assert computed style, not element count/presence.
+  pmetaVisibleCount: [...document.querySelectorAll(".pmeta")].filter((e) => getComputedStyle(e).display !== "none").length,
+  favorites: JSON.parse(localStorage.getItem("philosopheed:prefs") || "{}").favorites || [],
+}));
+console.log(`v9-06: state AFTER reload: ${JSON.stringify(afterReload)}`);
+const v906pass = afterReload.view === beforeReload.view && afterReload.mode === beforeReload.mode &&
+  afterReload.win === beforeReload.win && afterReload.theme === "dark" &&
+  afterReload.cardMinW === beforeReload.cardMinW && afterReload.hideAuthors === true &&
+  afterReload.pmetaVisibleCount === 0;
+console.log(`v9-06: ALL restored after reload -> ${v906pass ? "PASS" : "FAIL"}`);
+await pp.screenshot({ path: `${OUT}/v9-06b-after-reload.png` });
+
+// v9-09: favourites list persisted BY DEFAULT — checked directly off the
+// stored prefs (not the Favourites popover's checkbox UI): that UI is
+// filtered to the CURRENT Subfield mode (existing, intentional design —
+// "journals absent from the current mode simply don't render, but keep
+// their place in the list"), and v9-06 just switched mode to Ethics &
+// political, under which Noûs/Philosophical Studies (General-only
+// journals) correctly render as unchecked/absent. The underlying array is
+// what "persisted by default" actually means here, so that's what's
+// asserted; a follow-up check also confirms the popover UI reflects them
+// again once back in General mode.
+const v909pass = JSON.stringify(favNamesBefore.slice().sort()) ===
+  JSON.stringify(afterReload.favorites.map((id) => ({ nous: "Noûs", "phil-studies": "Philosophical Studies" }[id] || id)).sort());
+console.log(`v9-09: favourites before reload (checkbox names)=${JSON.stringify(favNamesBefore)}, ` +
+  `stored favourites ids after reload=${JSON.stringify(afterReload.favorites)} -> ${v909pass ? "PASS" : "FAIL"}`);
+await pp.screenshot({ path: `${OUT}/v9-09a-favorites-persisted-ethics-mode.png` }); // still Ethics mode here — Noûs/Phil Studies correctly not in this mode's list
+
+await setMode(pp, "General");
+await pp.waitForTimeout(300);
+await openFavorites(pp);
+await pp.waitForTimeout(200);
+const favNamesAfterGeneral = await pp.locator("#fav-list .fav-row.checked .fav-name").allInnerTexts();
+console.log(`v9-09: favourites checkbox UI back in General mode after reload: ${JSON.stringify(favNamesAfterGeneral)} (expect same 2 as before reload)`);
+await pp.screenshot({ path: `${OUT}/v9-09b-favorites-persisted-general-mode.png` });
+
+await persCtx.close();
+
 await browser.close();
 console.log("console/page errors:", errors.length ? errors : "none");
 console.log("mobile console/page errors:", mobileErrors.length ? mobileErrors : "none");
-if (errors.length || mobileErrors.length) process.exitCode = 1;
+console.log("persistence-context console/page errors:", persErrors.length ? persErrors : "none");
+if (errors.length || mobileErrors.length || persErrors.length) process.exitCode = 1;

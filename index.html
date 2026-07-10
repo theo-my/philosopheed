@@ -6,6 +6,20 @@
 <title>Philosopheed — recent publications in philosophy</title>
 <meta name="description" content="A dashboard of recent publications in philosophy's top journals, ranked by the de Bruin (2023) meta-ranking and the Leiter 2022 poll.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📜</text></svg>">
+<!-- Anti-FOUC: apply the persisted theme (if any) before first paint, so a
+     dark-mode visitor never sees a flash of the light palette. Reads the
+     SAME localStorage key/shape app.js uses (§8 prefs) — kept intentionally
+     tiny/defensive (try/catch, no throw) since it runs before anything else. -->
+<script>
+(function () {
+  try {
+    var p = JSON.parse(localStorage.getItem("philosopheed:prefs") || "null");
+    if (p && (p.theme === "light" || p.theme === "dark")) {
+      document.documentElement.dataset.theme = p.theme;
+    }
+  } catch (e) { /* corrupt storage — fall through to default/system theme */ }
+})();
+</script>
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
@@ -23,16 +37,18 @@
       <div class="spacer"></div>
       <input class="searchbox" id="search" type="search"
              placeholder="Search titles &amp; authors…" autocomplete="off">
+      <button class="iconbtn search-icon-btn" id="btn-search-toggle" title="Search" aria-label="Search" aria-expanded="false">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"></circle>
+          <line x1="11" y1="11" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></line>
+        </svg>
+      </button>
       <div class="display-wrap">
         <button class="iconbtn" id="btn-favorites" title="Favourite journals">Favourites</button>
         <div class="popover favorites-popover" id="favorites-popover">
           <div class="popover-head">Favourites <span class="popover-sub">click to add, in order</span></div>
           <div class="fav-list" id="fav-list"></div>
           <div class="fav-reorder-list" id="fav-reorder-list" style="display:none"></div>
-          <label class="fav-persist-row">
-            <input type="checkbox" id="fav-persist">
-            Save favourites on this device
-          </label>
           <button class="iconbtn popover-reset" id="fav-clear">Clear favourites</button>
           <button class="iconbtn popover-reset" id="fav-reorder">Re-order favourites</button>
           <button class="iconbtn popover-reset" id="fav-reorder-done" style="display:none">Done</button>
@@ -44,7 +60,7 @@
           <label>Zoom <span id="zoom-val">100%</span>
             <input type="range" id="zoom-slider" min="60" max="100" step="5" value="100"></label>
           <label>Card width <span id="cardw-val">420px</span>
-            <input type="range" id="cardw-slider" min="280" max="600" step="10" value="420"></label>
+            <input type="range" id="cardw-slider" min="160" max="600" step="10" value="420"></label>
           <label>Card height <span id="cardh-val">430px</span>
             <input type="range" id="cardh-slider" min="200" max="900" step="10" value="430"></label>
           <div class="popover-label">Feed width</div>
@@ -64,87 +80,85 @@
             <button data-font="sans" class="on">Sans</button>
             <button data-font="serif">Serif</button>
           </nav>
+          <div class="popover-label">Details</div>
+          <nav class="seg small popover-seg" id="details-seg" aria-label="Details">
+            <button data-details="show" class="on">Show authors &amp; dates</button>
+            <button data-details="hide">Hide authors &amp; dates</button>
+          </nav>
           <button class="iconbtn popover-reset" id="display-reset">Reset</button>
         </div>
       </div>
       <button class="iconbtn" id="btn-3d" title="3D view">3D</button>
-      <button class="iconbtn" id="btn-theme" title="Toggle light/dark">Theme</button>
-      <button class="iconbtn" id="btn-about" title="About the rankings &amp; data">About</button>
+      <div class="display-wrap more-wrap">
+        <button class="iconbtn" id="btn-more" title="More" aria-label="More" aria-haspopup="true" aria-expanded="false">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <circle cx="3" cy="8" r="1.6"></circle>
+            <circle cx="8" cy="8" r="1.6"></circle>
+            <circle cx="13" cy="8" r="1.6"></circle>
+          </svg>
+        </button>
+        <div class="popover more-menu" id="more-menu" role="menu">
+          <button class="menu-item mobile-only-item" id="menu-favorites" type="button">Favourites</button>
+          <button class="menu-item mobile-only-item" id="menu-display" type="button">Display</button>
+          <button class="menu-item mobile-only-item" id="menu-3d" type="button">3D view</button>
+          <button class="menu-item" id="menu-theme" type="button">Dark mode</button>
+          <button class="menu-item" id="menu-about" type="button">About</button>
+        </div>
+      </div>
     </div>
     <div class="cov-note" id="cov-note"></div>
-    <div class="subrow">
-      <span class="label">View</span>
-      <nav class="seg small" id="view-seg" aria-label="View">
-        <button data-v="venue" class="on">By venue</button>
-        <button data-v="topic">By topic</button>
-        <button data-v="all">All</button>
-        <button data-v="favorites">Favourites</button>
-      </nav>
-      <label class="dd-wrap" id="view-dd-wrap">
-        <span class="dd-label">View</span>
-        <select id="view-dd" aria-label="View">
-          <option value="venue">By venue</option>
-          <option value="topic">By topic</option>
-          <option value="all">All</option>
-          <option value="favorites">Favourites</option>
-        </select>
-      </label>
-
-      <span class="label">Subfield</span>
-      <nav class="seg small" id="mode-seg" aria-label="Field mode"></nav>
-      <label class="dd-wrap" id="mode-dd-wrap">
-        <span class="dd-label">Subfield</span>
-        <select id="mode-dd" aria-label="Field mode"></select>
-      </label>
-
-      <span class="label">Ranking</span>
-      <nav class="seg small" id="rank-seg" aria-label="Ranking"></nav>
-      <label class="dd-wrap" id="rank-dd-wrap">
-        <span class="dd-label">Ranking</span>
-        <select id="rank-dd" aria-label="Ranking"></select>
-      </label>
-
-      <span class="label">Window</span>
-      <nav class="seg small" id="win-seg" aria-label="Time window">
-        <button data-w="7">7 d</button>
-        <button data-w="30">30 d</button>
-        <button data-w="90">90 d</button>
-        <button data-w="365" class="on">12 mo</button>
-        <button data-w="1826">5 yr</button>
-        <button data-w="all">Since 2000</button>
-        <button data-w="year">Year…</button>
-        <button data-w="custom" id="win-custom">Custom…</button>
-      </nav>
-      <label class="dd-wrap" id="win-dd-wrap">
-        <span class="dd-label">Window</span>
-        <select id="win-dd" aria-label="Time window">
-          <option value="7">7 d</option>
-          <option value="30">30 d</option>
-          <option value="90">90 d</option>
-          <option value="365" selected>12 mo</option>
-          <option value="1826">5 yr</option>
-          <option value="all">Since 2000</option>
-          <option value="year">Year…</option>
-          <option value="custom" id="win-dd-custom-opt">Custom…</option>
-        </select>
-      </label>
-      <span class="yearpick" id="yearpick">
-        <input type="number" id="yearinput" min="2000" max="2026" step="1" value="2020"
-               inputmode="numeric" aria-label="Year (Enter applies)">
-        <button class="iconbtn" id="yearapply" title="Show this year — Enter applies">Go</button>
-      </span>
-      <span class="custompick" id="custompick">
-        <input type="number" id="custom-n" min="1" step="1" value="3"
-               inputmode="numeric" aria-label="Custom window amount (Enter applies)">
-        <select id="custom-unit" aria-label="Custom window unit">
-          <option value="days">days</option>
-          <option value="weeks" selected>weeks</option>
-          <option value="months">months</option>
-          <option value="years">years</option>
-        </select>
-        <button class="iconbtn" id="custom-apply" title="Show the last X units — Enter applies">Go</button>
-      </span>
-      <span class="basis-note" id="basis-note"></span>
+    <div class="chiprow" id="chiprow">
+      <div class="chip-wrap">
+        <button class="chip-btn" id="chip-view" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="chip-key">VIEW</span><span class="chip-val">By venue</span><span class="chip-caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="chip-menu" id="menu-view" role="menu"></div>
+      </div>
+      <div class="chip-wrap">
+        <button class="chip-btn" id="chip-mode" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="chip-key">SUBFIELD</span><span class="chip-val"></span><span class="chip-caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="chip-menu" id="menu-mode" role="menu"></div>
+      </div>
+      <div class="chip-wrap">
+        <button class="chip-btn" id="chip-rank" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="chip-key">RANKING</span><span class="chip-val"></span><span class="chip-caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="chip-menu" id="menu-rank" role="menu">
+          <div class="chip-menu-caption" id="basis-note"></div>
+        </div>
+      </div>
+      <div class="chip-wrap">
+        <button class="chip-btn" id="chip-win" type="button" aria-haspopup="true" aria-expanded="false">
+          <span class="chip-key">WINDOW</span><span class="chip-val">12 mo</span><span class="chip-caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="chip-menu" id="menu-win" role="menu">
+          <button class="chip-menu-item" data-preset="7" role="menuitemradio">7 d</button>
+          <button class="chip-menu-item" data-preset="30" role="menuitemradio">30 d</button>
+          <button class="chip-menu-item" data-preset="90" role="menuitemradio">90 d</button>
+          <button class="chip-menu-item on" data-preset="365" role="menuitemradio">12 mo</button>
+          <button class="chip-menu-item" data-preset="1826" role="menuitemradio">5 yr</button>
+          <button class="chip-menu-item" data-preset="all" role="menuitemradio">Since 2000</button>
+          <button class="chip-menu-item" id="win-menu-year-toggle" role="menuitemradio">Pick a year…</button>
+          <span class="yearpick" id="yearpick">
+            <input type="number" id="yearinput" min="2000" max="2026" step="1" value="2020"
+                   inputmode="numeric" aria-label="Year (Enter applies)">
+            <button class="iconbtn" id="yearapply" title="Show this year — Enter applies">Go</button>
+          </span>
+          <button class="chip-menu-item" id="win-menu-custom-toggle" role="menuitemradio">Custom…</button>
+          <span class="custompick" id="custompick">
+            <input type="number" id="custom-n" min="1" step="1" value="3"
+                   inputmode="numeric" aria-label="Custom window amount (Enter applies)">
+            <select id="custom-unit" aria-label="Custom window unit">
+              <option value="days">days</option>
+              <option value="weeks" selected>weeks</option>
+              <option value="months">months</option>
+              <option value="years">years</option>
+            </select>
+            <button class="iconbtn" id="custom-apply" title="Show the last X units — Enter applies">Go</button>
+          </span>
+        </div>
+      </div>
       <span class="count-note" id="count-note"></span>
     </div>
   </div>
@@ -189,4 +203,3 @@
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
-</content>
