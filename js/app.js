@@ -20,7 +20,7 @@ const DEFAULT_PREFS = {
   cardH: 430,
   cardStyle: "book",       // book | basic
   hideAuthors: false,      // "Hide authors & dates" display toggle (task 4)
-  view: "venue",           // venue | topic | all | favorites
+  view: "venue",           // venue | topic | all | favorites | favall
   mode: "general",         // subfield
   ranking: "db",           // db | leiter
   rankMode: "normal",      // normal | favorites
@@ -49,7 +49,7 @@ function migrateLegacyPrefs() {
   return p;
 }
 
-const VALID_VIEWS = ["venue", "topic", "all", "favorites"];
+const VALID_VIEWS = ["venue", "topic", "all", "favorites", "favall"];
 const VALID_WINS = ["7", "30", "90", "365", "1826", "all", "year", "custom"];
 const VALID_UNITS = ["days", "weeks", "months", "years"];
 
@@ -87,7 +87,7 @@ const S = {
   recent: null,          // recent.json rows
   yearCache: new Map(),  // year -> rows
   mode: Prefs.mode,
-  view: Prefs.view,       // venue | topic | all | favorites
+  view: Prefs.view,       // venue | topic | all | favorites | favall
   ranking: Prefs.ranking, // db | leiter (general mode only; irrelevant when rankMode is "favorites")
   rankMode: Prefs.rankMode, // normal | favorites — "Favourites" is a ranking option layered on top of db/leiter/field
   win: Prefs.win,         // '7'|'30'|'90'|'365'|'1826'|'all'|'year'|'custom'
@@ -612,18 +612,24 @@ function renderVenue(rows) {
 }
 
 // ---------------------------------------------------------- favourites view --
-// Shows ONLY the user's favourited journals, as ordinary venue-style cards,
-// in the user's own pick/drag order (Prefs.favorites — see the re-order
-// panel in initChrome). Distinct from the "Favourites" RANKING option,
-// which re-ranks ALL journals rather than filtering to just these.
+// "Favourites by venue" (view id "favorites"): shows ONLY the user's
+// favourited journals, as ordinary venue-style cards, in the user's own
+// pick/drag order (Prefs.favorites — see the re-order panel in initChrome).
+// Distinct from the "Favourites" RANKING option, which re-ranks ALL journals
+// rather than filtering to just these.
+//
+// favEmptyState() is shared by both favourites-filtered views ("Favourites
+// by venue" / "All favourites") — same friendly empty state, with a tail
+// describing how each view will present the favourites once picked.
+function favEmptyState(orderNote) {
+  const root = el("div", "status fav-view-empty");
+  root.innerHTML = `No favourites picked yet for this mode.<br>Open the <b>Favourites</b> menu in the header to pick some — they'll show up here, ${orderNote}.`;
+  return root;
+}
 function renderFavoritesView(rows) {
   const inMode = new Set(modeJournals().map((j) => j.id));
   const favIds = Prefs.favorites.filter((id) => inMode.has(id));
-  if (!favIds.length) {
-    const root = el("div", "status fav-view-empty");
-    root.innerHTML = `No favourites picked yet for this mode.<br>Open the <b>Favourites</b> menu in the header to pick some — they'll show up here, in the order you pick them.`;
-    return root;
-  }
+  if (!favIds.length) return favEmptyState("in the order you pick them");
   const byJ = byJournalMap(rows);
   const root = el("div", "jgrid");
   favIds.forEach((id) => {
@@ -790,11 +796,11 @@ let allViewObserver = null;
 function teardownAllView() {
   if (allViewObserver) { allViewObserver.disconnect(); allViewObserver = null; }
 }
-function renderAll(rows) {
+function renderAll(rows, title = "All papers") {
   teardownAllView();
   const root = el("div", "jcard tcard allcard");
   const head = el("div", "jhead");
-  head.innerHTML = `<div><div class="jname">All papers</div></div>
+  head.innerHTML = `<div><div class="jname">${esc(title)}</div></div>
     <div class="jright"><span class="jcount"><b>${rows.length.toLocaleString()}</b> in window</span></div>`;
   const body = el("div", "jbody allbody");
   root.append(head, body);
@@ -820,6 +826,22 @@ function renderAll(rows) {
   }, { rootMargin: "1000px 0px" });
   allViewObserver.observe(sentinel);
   return root;
+}
+
+// ------------------------------------------------------ all-favourites view --
+// "All favourites" (view id "favall"): the SAME flat, colour-coded,
+// newest-first, lazily chunk-rendered list the All view uses — renderAll()
+// is reused wholesale, so the chunked rendering and the "new since your
+// last visit" dots come along for free — filtered down to only papers from
+// favourited journals (Prefs.favorites, the same machinery "Favourites by
+// venue" reads). Ordering is untouched: the pre-sorted rows are filtered in
+// place, so it always matches the All view's own ordering.
+function renderFavAllView(rows) {
+  const inMode = new Set(modeJournals().map((j) => j.id));
+  const favIds = Prefs.favorites.filter((id) => inMode.has(id));
+  if (!favIds.length) return favEmptyState("as one flat list, newest first");
+  const favSet = new Set(favIds);
+  return renderAll(rows.filter((r) => favSet.has(r.journal)), "All favourites");
 }
 
 // ---------------------------------------------------------------- search --
@@ -978,6 +1000,7 @@ async function refresh() {
   if (S.query.length >= 2) c.append(renderSearch(S.rows));
   else if (S.view === "topic") c.append(renderTopic(S.rows));
   else if (S.view === "all") c.append(renderAll(S.rows));
+  else if (S.view === "favall") c.append(renderFavAllView(S.rows));
   else if (S.view === "favorites") c.append(renderFavoritesView(S.rows));
   else c.append(renderVenue(S.rows));
   const winLabel = S.sinceLastVisit ? "since last visit" : (S.win === "year" ? `year ${S.year}`
@@ -1118,7 +1141,8 @@ function initChrome() {
   // ------------------------------------------------------------- chip: View --
   const VIEW_OPTIONS = [
     { id: "venue", label: "By venue" }, { id: "topic", label: "By topic" },
-    { id: "all", label: "All" }, { id: "favorites", label: "Favourites" },
+    { id: "all", label: "All" },
+    { id: "favorites", label: "Favourites by venue" }, { id: "favall", label: "All favourites" },
   ];
   function buildViewChipMenu() {
     const menu = $("#menu-view");
@@ -1476,7 +1500,7 @@ function initChrome() {
     else if (!on && i !== -1) Prefs.favorites.splice(i, 1);
     savePrefs();
     renderFavoritesList();
-    if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
+    if (S.rankMode === "favorites" || S.view === "favorites" || S.view === "favall") { refresh(); S.three?.setRanking?.(); }
   }
 
   function renderFavoritesList() {
@@ -1516,7 +1540,7 @@ function initChrome() {
     const ids = [...favReorderList.querySelectorAll(".fav-reorder-row")].map((r) => r.dataset.jid);
     Prefs.favorites = ids;
     savePrefs();
-    if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
+    if (S.rankMode === "favorites" || S.view === "favorites" || S.view === "favall") { refresh(); S.three?.setRanking?.(); }
   }
 
   function renderReorderList() {
@@ -1599,7 +1623,7 @@ function initChrome() {
     Prefs.favorites = [];
     savePrefs();
     renderFavoritesList();
-    if (S.rankMode === "favorites" || S.view === "favorites") { refresh(); S.three?.setRanking?.(); }
+    if (S.rankMode === "favorites" || S.view === "favorites" || S.view === "favall") { refresh(); S.three?.setRanking?.(); }
   });
 
   // ------------------------------------------------------------------ 3D --

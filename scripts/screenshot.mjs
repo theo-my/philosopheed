@@ -27,7 +27,17 @@ async function pickChip(pg, chipId, menuId, text) {
   await pg.locator(`#${menuId} .chip-menu-item`, { hasText: text }).click();
   await pg.waitForTimeout(200);
 }
-async function setView(pg, text) { await pickChip(pg, "chip-view", "menu-view", text); }
+// setView matches the menu item's WHOLE text (not hasText's substring
+// matching): the v12 view split means "Favourites" is a substring of BOTH
+// "Favourites by venue" and "All favourites", and "All" of both "All" and
+// "All favourites" — substring matching would be a strict-mode violation.
+async function setView(pg, text) {
+  await pg.locator("#chip-view").click();
+  await pg.waitForTimeout(150);
+  const exact = new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  await pg.locator("#menu-view .chip-menu-item").filter({ hasText: exact }).click();
+  await pg.waitForTimeout(200);
+}
 async function setMode(pg, text) { await pickChip(pg, "chip-mode", "menu-mode", text); }
 async function setRanking(pg, text) { await pickChip(pg, "chip-rank", "menu-rank", text); }
 async function setWindowPreset(pg, presetId) {
@@ -505,10 +515,11 @@ await page.locator("#about-close").click();
 await page.waitForTimeout(200);
 
 // -------------------------------------------------------- favourites view --
-// task 13: "Favourites" as a VIEW option (distinct from the Favourites
+// task 13 (label updated in v12: "Favourites" -> "Favourites by venue"):
+// favourited journals as a VIEW option (distinct from the Favourites
 // RANKING option below) — empty state first, before any favourites exist
 {
-  await setView(page, "Favourites");
+  await setView(page, "Favourites by venue");
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/20a-favorites-view-empty.png` });
   await setView(page, "By venue");
@@ -568,12 +579,12 @@ await page.waitForTimeout(200);
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/21-favorites-ranking-2d.png` }); // reflects the re-ordered ranks
 
-  // task 13: Favourites VIEW (not ranking) — only the favourited journals,
-  // in favourites order, as ordinary cards. Revert ranking to de Bruin
-  // first so this isn't conflated with the ranking-mode shot above.
+  // task 13: "Favourites by venue" VIEW (not ranking) — only the favourited
+  // journals, in favourites order, as ordinary cards. Revert ranking to de
+  // Bruin first so this isn't conflated with the ranking-mode shot above.
   await setRanking(page, "Meta-ranking");
   await page.waitForTimeout(300);
-  await setView(page, "Favourites");
+  await setView(page, "Favourites by venue");
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/20e-favorites-view-populated.png` });
   await setView(page, "By venue");
@@ -1368,10 +1379,233 @@ vm.on("pageerror", (e) => v11MobileErrors.push(String(e)));
 }
 await v11MCtx.close();
 
+// ================================================ v12: favourites view split ==
+// The old "Favourites" VIEW is now two: "Favourites by venue" (view id
+// "favorites" — journal cards in favourites order, unchanged behaviour) and
+// "All favourites" (view id "favall" — the All view's flat colour-coded
+// lazy-chunked list, filtered to favourited journals). Own isolated context
+// (own localStorage), same reasoning as the persistence block above.
+const v12Errors = [];
+const v12Ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
+const fp = await v12Ctx.newPage();
+fp.on("console", (m) => { if (m.type() === "error") v12Errors.push(m.text()); });
+fp.on("pageerror", (e) => v12Errors.push(String(e)));
+
+await fp.goto(BASE, { waitUntil: "networkidle" });
+await fp.waitForTimeout(800);
+
+// v12-01: the VIEW chip menu offers BOTH new labels (and no plain
+// "Favourites" item any more), and with zero favourites picked BOTH views
+// show the shared friendly empty state — never a blank page.
+{
+  const items = await fp.locator("#menu-view .chip-menu-item").allInnerTexts();
+  const expected = ["By venue", "By topic", "All", "Favourites by venue", "All favourites"];
+  const menuPass = JSON.stringify(items) === JSON.stringify(expected);
+  console.log(`v12-01: VIEW menu items=${JSON.stringify(items)} (expect ${JSON.stringify(expected)}) -> ${menuPass ? "PASS" : "FAIL"}`);
+
+  await setView(fp, "Favourites by venue");
+  await fp.waitForTimeout(300);
+  const venueEmpty = await fp.locator(".fav-view-empty").count();
+  const venueCards = await fp.locator(".jgrid .jcard").count();
+  await fp.screenshot({ path: `${OUT}/v12-01a-fav-by-venue-empty.png` });
+
+  await setView(fp, "All favourites");
+  await fp.waitForTimeout(300);
+  const favallEmpty = await fp.locator(".fav-view-empty").count();
+  const favallRows = await fp.locator(".paper").count();
+  await fp.screenshot({ path: `${OUT}/v12-01b-all-favourites-empty.png` });
+  const pass = venueEmpty === 1 && venueCards === 0 && favallEmpty === 1 && favallRows === 0;
+  console.log(`v12-01: empty states — by-venue: empty-msg=${venueEmpty} cards=${venueCards} (expect 1, 0); ` +
+    `all-favourites: empty-msg=${favallEmpty} paper rows=${favallRows} (expect 1, 0) -> ${pass ? "PASS" : "FAIL"}`);
+}
+
+// v12-02: pick 3 favourites (top 3 in default rank order — pick order ==
+// list order) while STILL on "All favourites": toggling a favourite must
+// live-refresh this view, same as it always did for the old favourites view.
+let favNames = [], favIds = [];
+{
+  await openFavorites(fp);
+  await fp.waitForTimeout(200);
+  const rows = fp.locator("#fav-list .fav-row input");
+  await rows.nth(0).click();
+  await rows.nth(1).click();
+  await rows.nth(2).click();
+  await fp.waitForTimeout(300);
+  favNames = await fp.locator("#fav-list .fav-row.checked .fav-name").allInnerTexts();
+  await fp.mouse.click(50, 50); // close popover
+  await fp.waitForTimeout(400);
+  favIds = await fp.evaluate(() => JSON.parse(localStorage.getItem("philosopheed:prefs") || "{}").favorites || []);
+  const liveRows = await fp.locator(".allbody .paper").count();
+  console.log(`v12-02: picked favourites ${JSON.stringify(favNames)} (ids=${JSON.stringify(favIds)}) — ` +
+    `"All favourites" live-updated to ${liveRows} rows (expect > 0) -> ${liveRows > 0 ? "PASS" : "FAIL"}`);
+}
+
+// v12-03: "Favourites by venue" — only the 3 favourited journals, as cards,
+// in FAVOURITES order (assert twice: pick order, then a reversed stored
+// order after reload — cards must follow the favourites order, not rank).
+{
+  await setView(fp, "Favourites by venue");
+  await fp.waitForTimeout(400);
+  const stripCeased = (n) => n.replace(/\s*ceased\s*$/, "").trim();
+  const cardNames = await fp.evaluate(() =>
+    [...document.querySelectorAll(".jgrid .jcard .jname")].map((n) => n.textContent.replace(/\s*ceased\s*$/, "").trim()));
+  const orderPass = JSON.stringify(cardNames) === JSON.stringify(favNames.map(stripCeased));
+  await fp.screenshot({ path: `${OUT}/v12-03a-fav-by-venue-populated.png` });
+
+  await fp.evaluate(() => {
+    const p = JSON.parse(localStorage.getItem("philosopheed:prefs"));
+    p.favorites = p.favorites.slice().reverse();
+    localStorage.setItem("philosopheed:prefs", JSON.stringify(p));
+  });
+  await fp.reload({ waitUntil: "networkidle" });
+  await fp.waitForTimeout(800);
+  const cardNamesRev = await fp.evaluate(() =>
+    [...document.querySelectorAll(".jgrid .jcard .jname")].map((n) => n.textContent.replace(/\s*ceased\s*$/, "").trim()));
+  const revPass = JSON.stringify(cardNamesRev) === JSON.stringify(favNames.map(stripCeased).reverse());
+  const pass = cardNames.length === 3 && orderPass && revPass;
+  console.log(`v12-03: "Favourites by venue" cards=${JSON.stringify(cardNames)} (expect the 3 picks in pick order), ` +
+    `after reversing stored order + reload=${JSON.stringify(cardNamesRev)} (expect reversed) -> ${pass ? "PASS" : "FAIL"}`);
+  await fp.screenshot({ path: `${OUT}/v12-03b-fav-by-venue-reordered.png` });
+}
+
+// v12-04: "All favourites" — flat list containing ONLY papers from the
+// favourited journals, colour-coded venue names, newest-first (the All
+// view's own ordering), and the header total matches an independent
+// recomputation from recent.json (same 30 d window math the app uses).
+{
+  await setView(fp, "All favourites");
+  await fp.waitForTimeout(500);
+  const headTitle = await fp.locator(".allcard .jname").innerText();
+  const check = await fp.evaluate(async () => {
+    const favs = JSON.parse(localStorage.getItem("philosopheed:prefs")).favorites;
+    const favSet = new Set(favs);
+    const [recent, registry] = await Promise.all([
+      fetch(new URL("./data/recent.json", location.href).href).then((r) => r.json()),
+      fetch(new URL("./data/journals.json", location.href).href).then((r) => r.json()),
+    ]);
+    const nameById = new Map(registry.journals.map((j) => [j.id, j.name]));
+    const favNameSet = new Set(favs.map((id) => nameById.get(id)));
+    const cut = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+    const expectedTotal = recent.filter((r) => favSet.has(r.journal) && r.published >= cut).length;
+    const rows = [...document.querySelectorAll(".allbody .paper")];
+    const journals = rows.map((p) => p.querySelector(".pj").textContent.replace(/^●\s*/, "").trim());
+    const onlyFavs = rows.length > 0 && journals.every((n) => favNameSet.has(n));
+    const colored = rows.length > 0 && rows.every((p) => !!p.querySelector(".pj").style.color);
+    const dates = rows.map((p) => p.querySelector(".pmeta").textContent.trim().slice(-10));
+    const newestFirst = dates.every((d, i) => i === 0 || dates[i - 1] >= d);
+    const total = Number(document.querySelector(".allcard .jcount b").textContent.replace(/,/g, ""));
+    return { rowCount: rows.length, journals: [...new Set(journals)], onlyFavs, colored, newestFirst, total, expectedTotal };
+  });
+  const pass = headTitle === "All favourites" && check.onlyFavs && check.colored &&
+    check.newestFirst && check.total === check.expectedTotal;
+  console.log(`v12-04: "All favourites" — title="${headTitle}" (expect "All favourites"), rows in DOM=${check.rowCount}, ` +
+    `venues present=${JSON.stringify(check.journals)} all favourited=${check.onlyFavs}, colour-coded=${check.colored}, ` +
+    `newest-first=${check.newestFirst}, header total=${check.total} vs independently computed=${check.expectedTotal} -> ${pass ? "PASS" : "FAIL"}`);
+  await fp.screenshot({ path: `${OUT}/v12-04-all-favourites-desktop.png` });
+}
+
+// v12-05: the All view's lazy chunked rendering applies to "All favourites"
+// too — on the 5 yr window the DOM holds only the first chunk(s) up front,
+// and scrolling pulls in more.
+{
+  await setWindowPreset(fp, "1826");
+  await fp.waitForTimeout(3000);
+  const before = await fp.locator(".allbody .paper").count();
+  const total = Number((await fp.locator(".allcard .jcount b").innerText()).replace(/,/g, ""));
+  await fp.mouse.wheel(0, 5000);
+  await fp.waitForTimeout(600);
+  const after = await fp.locator(".allbody .paper").count();
+  const pass = total > before && after > before;
+  console.log(`v12-05: "All favourites" on 5 yr — ${before} rows in DOM of ${total} total (expect DOM < total: lazy), ` +
+    `after scroll=${after} (expect > ${before}) -> ${pass ? "PASS" : "FAIL"}`);
+  await fp.screenshot({ path: `${OUT}/v12-05-all-favourites-lazy-5yr.png` });
+  await setWindowPreset(fp, "30"); // revert to the default window
+  await fp.waitForTimeout(500);
+}
+
+// v12-06: the new view persists across reload like the others (stored under
+// philosopheed:prefs — the "All favourites" pick above was made via the UI).
+{
+  await fp.reload({ waitUntil: "networkidle" });
+  await fp.waitForTimeout(800);
+  const chipVal = await fp.locator("#chip-view .chip-val").innerText();
+  const allcard = await fp.locator(".allcard").count();
+  const rows = await fp.locator(".allbody .paper").count();
+  const pass = chipVal === "All favourites" && allcard === 1 && rows > 0;
+  console.log(`v12-06: after reload — VIEW chip="${chipVal}" (expect "All favourites"), .allcard present=${allcard === 1}, ` +
+    `rows=${rows} (expect > 0) -> ${pass ? "PASS" : "FAIL"}`);
+  await fp.screenshot({ path: `${OUT}/v12-06-favall-persists-reload.png` });
+}
+
+// v12-07: "new since your last visit" accent dots work in "All favourites"
+// exactly as in the All view — craft a baseline missing K papers from one
+// journal, favourite ONLY that journal, and expect the same dot count in
+// both views (the All view is fully lazy-loaded before counting).
+{
+  const K12 = 3;
+  const info = await craftBaseline(fp, { ageMs: 8 * 3600e3, dropCount: K12 });
+  await fp.evaluate((jid) => {
+    const p = JSON.parse(localStorage.getItem("philosopheed:prefs"));
+    p.favorites = [jid];
+    localStorage.setItem("philosopheed:prefs", JSON.stringify(p));
+  }, info.targetJournal);
+  await fp.reload({ waitUntil: "networkidle" });
+  await fp.waitForTimeout(800);
+  const favallDots = await fp.locator(".allbody .newdot").count();
+  await fp.locator(".allbody .paper.is-new").first().scrollIntoViewIfNeeded().catch(() => {});
+  await fp.screenshot({ path: `${OUT}/v12-07-favall-new-dots.png` });
+  await setView(fp, "All");
+  await fp.waitForTimeout(500);
+  for (let i = 0; i < 60 && await fp.locator(".all-sentinel").count(); i++) {
+    await fp.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await fp.waitForTimeout(250);
+  }
+  const allDots = await fp.locator(".allbody .newdot").count();
+  const pass = favallDots === K12 && allDots === K12;
+  console.log(`v12-07: ${K12} crafted-new papers on ${info.targetJournal} (the only favourite) — ` +
+    `.newdot count in "All favourites"=${favallDots}, in fully-loaded "All"=${allDots} (expect ${K12} in both) -> ${pass ? "PASS" : "FAIL"}`);
+}
+
+await v12Ctx.close();
+
+// v12-08: mobile portrait (390×844) — "All favourites" renders with no
+// horizontal page overflow (chip row scrolls; the longer labels are fine).
+const v12MErrors = [];
+const v12MCtx = await browser.newContext({
+  viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+  deviceScaleFactor: 3, userAgent: IPHONE_UA,
+});
+const fm = await v12MCtx.newPage();
+fm.on("console", (m) => { if (m.type() === "error") v12MErrors.push(`[v12 mobile] ${m.text()}`); });
+fm.on("pageerror", (e) => v12MErrors.push(`[v12 mobile] ${e}`));
+{
+  await fm.goto(BASE, { waitUntil: "networkidle" }); // first visit — seeds baseline/prefs
+  await fm.waitForTimeout(600);
+  await fm.evaluate((ids) => {
+    const p = JSON.parse(localStorage.getItem("philosopheed:prefs") || "{}");
+    p.favorites = ids;
+    p.view = "favall";
+    localStorage.setItem("philosopheed:prefs", JSON.stringify(p));
+  }, favIds);
+  await fm.reload({ waitUntil: "networkidle" });
+  await fm.waitForTimeout(800);
+  const chipVal = await fm.locator("#chip-view .chip-val").innerText();
+  const rows = await fm.locator(".allbody .paper").count();
+  const overflow = await fm.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  const pass = chipVal === "All favourites" && rows > 0 && overflow <= 0;
+  console.log(`v12-08: mobile 390px portrait "All favourites" — VIEW chip="${chipVal}" (expect "All favourites"), ` +
+    `rows=${rows} (expect > 0), horizontal overflow=${overflow}px (expect <=0) -> ${pass ? "PASS" : "FAIL"}`);
+  await fm.screenshot({ path: `${OUT}/v12-08-all-favourites-mobile.png` });
+}
+await v12MCtx.close();
+
 await browser.close();
 console.log("console/page errors:", errors.length ? errors : "none");
 console.log("mobile console/page errors:", mobileErrors.length ? mobileErrors : "none");
 console.log("persistence-context console/page errors:", persErrors.length ? persErrors : "none");
 console.log("v11 (since-last-visit) context console/page errors:", v11Errors.length ? v11Errors : "none");
 console.log("v11 mobile console/page errors:", v11MobileErrors.length ? v11MobileErrors : "none");
-if (errors.length || mobileErrors.length || persErrors.length || v11Errors.length || v11MobileErrors.length) process.exitCode = 1;
+console.log("v12 (favourites view split) console/page errors:", v12Errors.length ? v12Errors : "none");
+console.log("v12 mobile console/page errors:", v12MErrors.length ? v12MErrors : "none");
+if (errors.length || mobileErrors.length || persErrors.length || v11Errors.length || v11MobileErrors.length ||
+    v12Errors.length || v12MErrors.length) process.exitCode = 1;
