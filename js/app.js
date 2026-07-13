@@ -24,7 +24,7 @@ const DEFAULT_PREFS = {
   mode: "general",         // subfield
   ranking: "db",           // db | leiter
   rankMode: "normal",      // normal | favorites
-  win: "365",              // '7'|'30'|'90'|'365'|'1826'|'all'|'year'|'custom'
+  win: "30",               // '7'|'30'|'90'|'365'|'1826'|'all'|'year'|'custom'
   year: 2020,
   customN: 3,
   customUnit: "weeks",     // days | weeks | months | years
@@ -902,8 +902,7 @@ function openAbout() {
   $("#about-modal").innerHTML = `
     <h3>About Philosopheed</h3>
     <p>This is a work-in-progress dashboard for viewing publications in leading philosophy
-    journals. The point is so that you can, at a glance, see what's come out recently in top
-    journals.</p>
+    journals at a glance.</p>
     <p>Publications are taken daily from CrossRef and publisher RSS feeds. Given the focus on
     the present, journals by default only have a 5-year history, except for top-ranked journals
     which have a history since 2000. Some specialist journals do not show up in the default
@@ -911,7 +910,7 @@ function openAbout() {
     <p class="about-updated">Data last updated: ${esc(formatUpdated(st.generated))}</p>
     <h3>Rankings</h3>
     <ul>
-      <li><b>de Bruin 2023 (meta-ranking)</b> — A meta-ranking of several journal rankings,
+      <li><b>Meta-ranking (de Bruin 2023)</b> — A meta-ranking of several journal rankings,
       which is the default for this site. Based on this Synthese article:
       <a href="${esc(m.rankings.db_pca.url)}" target="_blank" rel="noopener">source ↗</a></li>
       <li><b>Leiter 2022 poll</b> — Many philosophers refer to Brian Leiter's blog for a
@@ -1037,7 +1036,7 @@ function rankOptions() {
         { id: "favorites", label: "Favourites", on: S.rankMode === "favorites" },
       ]
     : [
-        { id: "db", label: "de Bruin 2023", on: S.rankMode !== "favorites" && S.ranking === "db" },
+        { id: "db", label: "Meta-ranking", on: S.rankMode !== "favorites" && S.ranking === "db" },
         { id: "leiter", label: "Leiter 2022", on: S.rankMode !== "favorites" && S.ranking === "leiter" },
         { id: "favorites", label: "Favourites", on: S.rankMode === "favorites" },
       ];

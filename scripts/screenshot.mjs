@@ -571,7 +571,7 @@ await page.waitForTimeout(200);
   // task 13: Favourites VIEW (not ranking) — only the favourited journals,
   // in favourites order, as ordinary cards. Revert ranking to de Bruin
   // first so this isn't conflated with the ranking-mode shot above.
-  await setRanking(page, "de Bruin");
+  await setRanking(page, "Meta-ranking");
   await page.waitForTimeout(300);
   await setView(page, "Favourites");
   await page.waitForTimeout(400);
@@ -677,7 +677,7 @@ await page.waitForTimeout(300);
   console.log(`Card-width slider min attribute: ${cardwMin} (expect "160" — task 3/v9)`);
 }
 // undo the favourites ranking pick so 3D shots start from de Bruin ranking
-await setRanking(page, "de Bruin");
+await setRanking(page, "Meta-ranking");
 await page.waitForTimeout(300);
 
 // ------------------------------------------------------------------- 3D --
@@ -768,7 +768,7 @@ let topGeneralId = null;
   const orderChanged = JSON.stringify(before.generalOrder) !== JSON.stringify(after.generalOrder);
   console.log(`v10-05: general shelf order before=${JSON.stringify(before.generalOrder.slice(0, 5))}… after Leiter=${JSON.stringify(after.generalOrder.slice(0, 5))}… -> ${orderChanged ? "PASS (order differs)" : "FAIL (order unchanged)"}`);
   await page.screenshot({ path: `${OUT}/v10-05-3d-reranked.png` });
-  await page.locator("#rank-seg-3d button", { hasText: "de Bruin" }).click(); // revert
+  await page.locator("#rank-seg-3d button", { hasText: "Meta-ranking" }).click(); // revert
   await page.waitForTimeout(500);
 }
 
@@ -1283,7 +1283,7 @@ let craftInfo;
 }
 
 // v11-04: reload after v11-03 — window pref restored to the previous REAL
-// window (12 mo, the default — never touched by the since-last-visit
+// window (30 d, the default — never touched by the since-last-visit
 // toggle), NOT stuck showing "since last visit".
 {
   await vp.reload({ waitUntil: "networkidle" });
@@ -1291,8 +1291,8 @@ let craftInfo;
   const chipVal = await vp.locator("#chip-win .chip-val").innerText();
   const dbg = await visitDebug(vp);
   const rowCount = await vp.locator(".jbody .paper, .allbody .paper").count();
-  const pass = chipVal === "12 mo" && dbg.sinceLastVisit === false && rowCount > K;
-  console.log(`v11-04: after reload — chip label="${chipVal}" (expect "12 mo"), sinceLastVisit=${dbg.sinceLastVisit} (expect false), rows=${rowCount} (expect >${K}) -> ${pass ? "PASS" : "FAIL"}`);
+  const pass = chipVal === "30 d" && dbg.sinceLastVisit === false && rowCount > K;
+  console.log(`v11-04: after reload — chip label="${chipVal}" (expect "30 d"), sinceLastVisit=${dbg.sinceLastVisit} (expect false), rows=${rowCount} (expect >${K}) -> ${pass ? "PASS" : "FAIL"}`);
   await vp.screenshot({ path: `${OUT}/v11-04-window-restored-after-reload.png` });
 }
 
