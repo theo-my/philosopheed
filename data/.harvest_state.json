@@ -2,187 +2,187 @@
  "journals": {
   "ratio": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 833
   },
   "phil-tech": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 671
   },
   "ethics": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 810
   },
   "nous": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1149
   },
   "phil-studies": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 4173
   },
   "ppr": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 2657
   },
   "synthese": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 7199
   },
   "mind": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 2638
   },
   "ajp": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1983
   },
   "phil-review": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1448
   },
   "jphil": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1176
   },
   "ppq": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 832
   },
   "erkenntnis": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 2364
   },
   "pq": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 2044
   },
   "ejp": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1335
   },
   "cjp": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1159
   },
   "phil-issues": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 573
   },
   "inquiry": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1779
   },
   "japa": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 497
   },
   "phil-imprint": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 163
   },
   "analysis": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 3146
   },
   "apq": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 302
   },
   "metaphilosophy": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 229
   },
   "sjp": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 248
   },
   "res-phil": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 112
   },
   "dialectica": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 63
   },
   "philosophia": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 608
   },
   "thought": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 65
   },
   "philosophy": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 183
   },
   "ipq": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 114
   },
   "rev-metaphysics": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 386
   },
   "pas": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 674
   },
   "ergo": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 557
   },
   "phil-perspectives": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 71
   },
   "monist": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 166
   },
   "phil-topics": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 66
   },
   "ppa": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 516
   },
   "jpp": {
@@ -192,142 +192,142 @@
   },
   "jmp": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 339
   },
   "utilitas": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 165
   },
   "econ-phil": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 195
   },
   "jesp": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 282
   },
   "ppe": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 108
   },
   "j-ethics": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 179
   },
   "etmp": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 325
   },
   "jap": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 309
   },
   "pol-phil": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 58
   },
   "free-equal": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 33
   },
   "bioethics": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 600
   },
   "jme": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1120
   },
   "bjps": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1222
   },
   "phil-sci": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 2284
   },
   "shps": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 539
   },
   "ejps": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 363
   },
   "bio-phil": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 209
   },
   "jgps": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 187
   },
   "found-phys": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 442
   },
   "persp-sci": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 161
   },
   "minds-machines": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 216
   },
   "eit": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 301
   },
   "see": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 277
   },
   "ai-soc": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1876
   },
   "ai-ethics": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 1142
   },
   "bds": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 587
   },
   "techne": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 0
   },
   "dig-soc": {
    "backfilled": true,
-   "last_update": "2026-07-19",
+   "last_update": "2026-07-20",
    "last_count": 261
   }
  }
